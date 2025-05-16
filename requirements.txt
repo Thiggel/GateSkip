@@ -1,0 +1,17 @@
+python-dotenv
+wandb
+torch
+lightning
+transformers
+datasets
+numpy
+matplotlib
+torchdeq
+deepspeed
+huggingface_hub
+pytest
+einops
+lm-eval
+peft
+optimum-quanto
+botorch

@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=368640
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=4:00:00
+#SBATCH --job-name=llama8b_vector_individual_gate
+#SBATCH --output=job_logs/cot/llama8b_vector_individual_gate-%A.out
+
+cd $HOME/Gating
+
+. jobs/environment.sh
+
+#srun python -m experiment \
+#  --model-name "meta-llama/Llama-3.1-8B" \
+#  --dataset csqa_gsm8k_gen \
+#  --pretrained \
+#  --use-gating \
+#  --entropy-loss-weight 0.0 \
+#  --sparsity-loss-weight 1.0 \
+#  --skip-modules \
+#  --increasing-threshold \
+#  --start-thr-percentile 0.0 \
+#  --end-thr-percentile 0.2 \
+#  --num-increasing-steps 6800 \
+#  --batch-size 1 \
+#  --eval-batch-size 16 \
+#  --seq-length 4096 \
+#  --learning-rate 3e-6 \
+#  --warmup-steps 1000 \
+#  --lr-decay-steps 6800 \
+#  --max-epochs 1 \
+#  --finetune-mode full \
+#  --experiment-name llama8b_vector_individual_gate \
+#  --save-to-checkpoint llama8b_vector_individual_gate \
+#  --project-name gateskip \
+#  --enable-logging
+ 
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-8B" \
+  --pretrained \
+  --use-gating \
+  --skip-modules \
+  --skip-layers \
+  --eval-batch-size 32 \
+  --seq-length 4096 \
+  --finetune-mode full \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
+  --num-fewshot 0 \
+  --experiment-name llama8b_vector_individual_gate \
+  --load-from-checkpoint llama8b-csqa-gsm8k-gen-individual \
+  --project-name gateskip
