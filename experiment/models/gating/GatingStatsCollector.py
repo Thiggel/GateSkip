@@ -11,19 +11,46 @@ from typing import Dict, Any, Generator, Tuple
 class GatingStatsCollector:
     def __init__(self):
         self.layer_gate_values = {}  # Format: {layer_name: [gate_values_list]}
+        # Mapping from token id to list of importance scores
+        self.token_importance_hist: Dict[int, list[float]] = {}
         
     def collect(self, model):
-        """Collect gate values from the current forward pass"""
+        """Collect gate values and token importances from the current forward pass"""
         if hasattr(model, "gating"):
+            layer_importances = []
+            input_ids = None
+            validity_mask = None
+
             for name, module in model.gating.wrapped_modules.items():
                 if module.current_gate_value is not None:
-                    # Get mean across hidden dim for each token
                     gate_value = module.current_gate_value.mean(dim=-1).detach().cpu()
-                    
                     if name not in self.layer_gate_values:
                         self.layer_gate_values[name] = []
-                    
                     self.layer_gate_values[name].append(gate_value)
+
+                if (
+                    module.current_token_importance is not None
+                    and module.current_input_ids is not None
+                    and module.current_validity_mask is not None
+                ):
+                    layer_importances.append(module.current_token_importance.detach().cpu())
+                    if input_ids is None:
+                        input_ids = module.current_input_ids.detach().cpu()
+                        validity_mask = module.current_validity_mask.detach().cpu()
+
+            if layer_importances and input_ids is not None and validity_mask is not None:
+                stacked = torch.stack(layer_importances)
+                avg_importance = stacked.mean(dim=0)
+
+                for tok, imp, valid in zip(
+                    input_ids.flatten(), avg_importance.flatten(), validity_mask.flatten()
+                ):
+                    if valid:
+                        tok_id = int(tok)
+                        imp_val = float(imp)
+                        if tok_id not in self.token_importance_hist:
+                            self.token_importance_hist[tok_id] = []
+                        self.token_importance_hist[tok_id].append(imp_val)
     
     def get_distributions(self):
         """Return concatenated gate values for each layer"""
@@ -33,6 +60,30 @@ class GatingStatsCollector:
             all_values = torch.cat([v.flatten() for v in values_list])
             distributions[name] = all_values
         return distributions
+
+    def reset_token_histogram(self) -> None:
+        """Clear collected token importance values"""
+        self.token_importance_hist = {}
+
+    def save_token_histogram(self, tokenizer, file_path: str, bins: int = 20) -> None:
+        """Save histogram of token importance values to a JSON file"""
+        import json
+        from pathlib import Path
+        histogram: Dict[str, Dict[str, list]] = {}
+
+        for tok_id, values in self.token_importance_hist.items():
+            if len(values) == 0:
+                continue
+            hist, bin_edges = np.histogram(values, bins=bins, range=(0.0, 1.0))
+            token = tokenizer.decode([tok_id]) if tokenizer is not None else str(tok_id)
+            histogram[token] = {
+                "hist": hist.tolist(),
+                "bin_edges": bin_edges.tolist(),
+            }
+
+        Path(file_path).parent.mkdir(exist_ok=True, parents=True)
+        with open(file_path, "w") as f:
+            json.dump(histogram, f, indent=2)
 
     @contextmanager
     def visualize_gate_distributions(self, model: nn.Module) -> Generator[Dict[str, Any], None, None]:

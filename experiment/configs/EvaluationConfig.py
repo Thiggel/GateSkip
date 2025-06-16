@@ -25,3 +25,7 @@ class EvaluationConfig(BaseModel):
     use_quantization: bool = Field(
         False, description="Whether to use quantization for evaluation"
     )
+    save_token_importance_histogram: bool = Field(
+        False,
+        description="Save histogram of token importance during evaluation",
+    )
