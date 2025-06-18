@@ -260,11 +260,11 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
                 )
                 os.makedirs(output_dir, exist_ok=True)
                 filename = f"{self.experiment_config.experiment_name}_{int(pct*100)}pct_saved.json"
-                model.gating_stats_collector.save_token_histogram(
+                model.gating_stats_collector.save_token_importance_stats(
                     self.tokenizer,
                     os.path.join(output_dir, filename),
                 )
-                model.gating_stats_collector.reset_token_histogram()
+                model.gating_stats_collector.reset_token_stats()
 
         # Save the results to a file
         results_path = os.path.join(os.environ.get("BASE_CACHE_DIR"), "results")

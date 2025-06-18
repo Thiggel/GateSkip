@@ -11,8 +11,11 @@ from typing import Dict, Any, Generator, Tuple
 class GatingStatsCollector:
     def __init__(self):
         self.layer_gate_values = {}  # Format: {layer_name: [gate_values_list]}
-        # Mapping from token id to list of importance scores
-        self.token_importance_hist: Dict[int, list[float]] = {}
+        # Track aggregated importance per token across the entire evaluation
+        # by storing the sum of observed importances and a count of how many
+        # times each token occurred.
+        self.token_importance_sum: Dict[int, float] = {}
+        self.token_importance_count: Dict[int, int] = {}
         
     def collect(self, model):
         """Collect gate values and token importances from the current forward pass"""
@@ -48,9 +51,12 @@ class GatingStatsCollector:
                     if valid:
                         tok_id = int(tok)
                         imp_val = float(imp)
-                        if tok_id not in self.token_importance_hist:
-                            self.token_importance_hist[tok_id] = []
-                        self.token_importance_hist[tok_id].append(imp_val)
+                        self.token_importance_sum[tok_id] = (
+                            self.token_importance_sum.get(tok_id, 0.0) + imp_val
+                        )
+                        self.token_importance_count[tok_id] = (
+                            self.token_importance_count.get(tok_id, 0) + 1
+                        )
     
     def get_distributions(self):
         """Return concatenated gate values for each layer"""
@@ -61,29 +67,27 @@ class GatingStatsCollector:
             distributions[name] = all_values
         return distributions
 
-    def reset_token_histogram(self) -> None:
-        """Clear collected token importance values"""
-        self.token_importance_hist = {}
+    def reset_token_stats(self) -> None:
+        """Clear collected token importance sums and counts"""
+        self.token_importance_sum = {}
+        self.token_importance_count = {}
 
-    def save_token_histogram(self, tokenizer, file_path: str, bins: int = 20) -> None:
-        """Save histogram of token importance values to a JSON file"""
+    def save_token_importance_stats(self, tokenizer, file_path: str) -> None:
+        """Save average token importance values to a JSON file"""
         import json
         from pathlib import Path
-        histogram: Dict[str, Dict[str, list]] = {}
 
-        for tok_id, values in self.token_importance_hist.items():
-            if len(values) == 0:
+        averages: Dict[str, float] = {}
+        for tok_id, total in self.token_importance_sum.items():
+            count = self.token_importance_count.get(tok_id, 0)
+            if count == 0:
                 continue
-            hist, bin_edges = np.histogram(values, bins=bins, range=(0.0, 1.0))
             token = tokenizer.decode([tok_id]) if tokenizer is not None else str(tok_id)
-            histogram[token] = {
-                "hist": hist.tolist(),
-                "bin_edges": bin_edges.tolist(),
-            }
+            averages[token] = total / count
 
         Path(file_path).parent.mkdir(exist_ok=True, parents=True)
         with open(file_path, "w") as f:
-            json.dump(histogram, f, indent=2)
+            json.dump(averages, f, indent=2)
 
     @contextmanager
     def visualize_gate_distributions(self, model: nn.Module) -> Generator[Dict[str, Any], None, None]:
