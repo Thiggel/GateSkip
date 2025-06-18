@@ -27,5 +27,5 @@ class EvaluationConfig(BaseModel):
     )
     save_token_importance_histogram: bool = Field(
         False,
-        description="Save average token importance statistics during evaluation",
+        description="Save histogram of token importance during evaluation",
     )
