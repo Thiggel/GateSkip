@@ -7,6 +7,7 @@ from .LayerRange import LayerRange
 from .GatingConfig import GatingConfig
 from .EarlyExitConfig import EarlyExitConfig
 from .MoDConfig import MoDConfig
+from .SkipLayerConfig import SkipLayerConfig
 
 
 class FinetuneMode(str, Enum):
@@ -15,7 +16,7 @@ class FinetuneMode(str, Enum):
     FROZEN = "frozen"
 
 
-class ModelConfig(BaseModel, LoraConfig, GatingConfig, MoDConfig, EarlyExitConfig):
+class ModelConfig(BaseModel, LoraConfig, GatingConfig, MoDConfig, EarlyExitConfig, SkipLayerConfig):
     """Configuration for model architecture and behavior"""
 
     model_name: str = Field("gpt2", description="The model name to be used")

@@ -16,6 +16,7 @@ from ..HasLayers import HasLayers
 from experiment.models.gating import ModelGating
 from experiment.models.mixture_of_depths import ModelMod
 from experiment.models.early_exit import ModelEarlyExit
+from experiment.models.skip_layer import ModelSkipLayer
 
 
 class ModelAdapter(HasLayers):
@@ -139,6 +140,27 @@ class ModelAdapter(HasLayers):
                             frozen_gate=self.config.frozen_gate,
                         )
 
+        elif self.config.use_skip_layer:
+            routing = ModelSkipLayer(self.config, d_model)
+            layers = self.get_decoder_layers(model)
+            for i, layer in enumerate(layers):
+                if hasattr(layer, "self_attn"):
+                    layer.self_attn = routing.wrap_module(
+                        f"attn_{i}", layer.self_attn, parent=layer, layer_idx=i
+                    )
+                    if hasattr(layer, "mlp"):
+                        layer.mlp = routing.wrap_module(
+                            f"mlp_{i}", layer.mlp, parent=layer, layer_idx=i
+                        )
+                elif hasattr(layer, "attn"):
+                    layer.attn = routing.wrap_module(
+                        f"attn_{i}", layer.attn, parent=layer, layer_idx=i
+                    )
+                    if hasattr(layer, "ff"):
+                        layer.ff = routing.wrap_module(
+                            f"mlp_{i}", layer.ff, parent=layer, layer_idx=i
+                        )
+
         elif self.config.use_early_exit:
             # Initialize early exit manager
             early_exit = ModelEarlyExit(self.config)
@@ -248,7 +270,9 @@ class ModelAdapter(HasLayers):
             model.add_module("mod", routing)
         elif self.config.use_gating:
             model.add_module("gating", routing)
-
+        elif self.config.use_skip_layer:
+            model.add_module("skip_layer", routing)
+        
         return model
 
     def _infer_hidden_size(self, model: PreTrainedModel) -> int:

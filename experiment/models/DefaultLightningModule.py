@@ -97,6 +97,11 @@ class DefaultLightningModule(LightningModule, HasLayers):
                 self.percent_tokens_skipped.append(
                     1 - module.current_percent_tokens_processed
                 )
+        elif self.config.use_skip_layer:
+            for module in self.model.skip_layer.wrapped_modules.values():
+                self.percent_tokens_skipped.append(
+                    module.current_percent_tokens_skipped
+                )
         elif self.config.use_early_exit and hasattr(self.model, "early_exit"):
             # Get early exit statistics
             early_exit_stats = self.model.early_exit.compute_early_exit_statistics()
@@ -297,6 +302,15 @@ class DefaultLightningModule(LightningModule, HasLayers):
                 )
 
                 loss += predictor_loss * self.config.predictor_loss_weight
+            elif self.config.use_skip_layer:
+                aux_loss = self.model.skip_layer.compute_aux_loss(dtype=loss.dtype)
+                self.log(
+                    f"{mode}_skip_layer_aux_loss",
+                    aux_loss,
+                    sync_dist=True,
+                    batch_size=batch["labels"].shape[0],
+                )
+                loss += aux_loss
 
         if self.config.use_gating:
             percent_skipped = []
@@ -322,6 +336,19 @@ class DefaultLightningModule(LightningModule, HasLayers):
             percent_skipped = []
             for module in self.model.mod.wrapped_modules.values():
                 percent_skipped.append(1 - module.current_percent_tokens_skipped)
+            percent_skipped = torch.tensor(
+                percent_skipped, device=batch["input_ids"].device
+            ).mean()
+            self.log(
+                f"{mode}_percent_tokens_skipped",
+                percent_skipped,
+                sync_dist=True,
+                batch_size=batch["input_ids"].shape[0],
+            )
+        elif self.config.use_skip_layer:
+            percent_skipped = []
+            for module in self.model.skip_layer.wrapped_modules.values():
+                percent_skipped.append(module.current_percent_tokens_skipped)
             percent_skipped = torch.tensor(
                 percent_skipped, device=batch["input_ids"].device
             ).mean()
