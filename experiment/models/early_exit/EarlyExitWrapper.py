@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from typing import Any, Optional, Union, Dict, List
 
 from experiment.configs.ModelConfig import ModelConfig
-from experiment.configs.EarlyExitConfig import ConfidenceMeasure
+from experiment.configs.EarlyExitConfig import ConfidenceMeasure, EarlyExitMethod
 from experiment.utils.threshold_finder import ThresholdFinder
 
 
@@ -120,6 +120,15 @@ class EarlyExitWrapper(nn.Module):
         self, confidence: torch.Tensor, step_idx: int, max_steps: int = 100
     ) -> torch.Tensor:
         """Determine whether to exit early based on confidence and threshold."""
+        if self.config.early_exit_method == EarlyExitMethod.FREE:
+            shallow_last = (
+                max(self.config.free_shallow_layers)
+                if self.config.free_shallow_layers
+                else 0
+            )
+            if self.layer_idx != shallow_last:
+                return torch.zeros_like(confidence, dtype=torch.bool)
+
         # Fixed exit layer takes precedence
         if self.config.fixed_exit_layer > 0:
             return torch.tensor(
