@@ -46,6 +46,10 @@ class ModelEarlyExit(nn.Module):
         self.is_generating = False
         self.current_step = 0
 
+        # Patience-based state tracking
+        self.prev_predictions: Optional[torch.Tensor] = None
+        self.patience_counters: Optional[torch.Tensor] = None
+
         self.exit_mask = None
 
     def compute_free_distillation_loss(
@@ -311,6 +315,9 @@ class ModelEarlyExit(nn.Module):
         self.exit_layer_counts = {}
         self.total_tokens = 0
         self.current_step = 0
+
+        self.prev_predictions = None
+        self.patience_counters = None
 
         for module in self.wrapped_modules.values():
             module.tokens_processed = 0

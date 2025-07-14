@@ -16,6 +16,7 @@ GateSkip addresses the growing cost of running large decoder‑only Transformers
 * **Sparsity‑driven training:** Joint cross‑entropy + L2 gate penalty yields fine‑grained token saving.
 * **Token‑level dynamic skipping:** Budget decay during training (100→80 % tokens) and fixed budgets at inference.
 * **Compatibility & analysis:** Works with quantization and reveals novel patterns in BOS‑token importance.
+* **Patience & entropy exits:** Training‑free PABEE and DeeBERT options allow early termination when predictions stabilise or entropy drops below a threshold.
 
 ## Repository Structure
 
