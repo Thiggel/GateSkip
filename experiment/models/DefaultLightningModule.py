@@ -243,7 +243,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
                 hidden_states = outputs.decoder_hidden_states
 
             # Compute early exit loss
-            loss, layer_losses = self.model.early_exit.compute_early_exit_loss(
+            loss, layer_losses, mapping = self.model.early_exit.compute_early_exit_loss(
                 hidden_states, self.model.get_output_embeddings(), batch["labels"]
             )
 
@@ -255,6 +255,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
                     sync_dist=True,
                     batch_size=batch["labels"].shape[0],
                 )
+
         else:
             # Regular forward pass for validation or non-early-exit training
             outputs = self.model(**batch)

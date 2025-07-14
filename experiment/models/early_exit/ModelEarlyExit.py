@@ -54,6 +54,7 @@ class ModelEarlyExit(nn.Module):
         """Compute FREE shallow-to-deep distillation loss."""
         losses = []
         mapping: Dict[int, int] = {}
+        shallow_layer_indices = range(*self.config.free_shallow_layers)
 
         for idx, s in enumerate(shallow_states):
             mse_vals = []
@@ -61,8 +62,8 @@ class ModelEarlyExit(nn.Module):
                 mse_vals.append(torch.mean((s - d) ** 2))
             mse_tensor = torch.stack(mse_vals)
             m = int(torch.argmin(mse_tensor).item())
-            mapping[self.config.free_shallow_layers[idx]] = m
             losses.append(mse_tensor[m])
+            mapping[shallow_layer_indices[idx]] = self.config.free_shallow_layers[1] + m
 
         if losses:
             return torch.stack(losses).mean(), mapping
@@ -126,15 +127,17 @@ class ModelEarlyExit(nn.Module):
             loss_dict["shallow_loss"] = shallow_loss.detach()
             loss_dict["deep_loss"] = deep_loss.detach()
 
+            mapping = None
             if self.config.use_free_distillation:
                 dist_loss, mapping = self.compute_free_distillation_loss(
-                    [hidden_states[i] for i in self.config.free_shallow_layers],
-                    hidden_states,
+                    [hidden_states[i] for i in range(*self.config.free_shallow_layers)],
+                    [hidden_state for index, hidden_state in enumerate(hidden_states) if index not in range(*self.config.free_shallow_layers)],
                 )
+
                 total_loss = total_loss + dist_loss * self.config.free_distillation_loss_weight
                 loss_dict["distillation_loss"] = dist_loss.detach()
             loss_dict["early_exit_loss"] = total_loss.detach()
-            return total_loss, loss_dict
+            return total_loss, loss_dict, mapping
 
         # CALM default behaviour
         num_layers = len(hidden_states)
@@ -165,7 +168,7 @@ class ModelEarlyExit(nn.Module):
 
         loss_dict = {f"layer_{i}_loss": l.detach() for i, l in enumerate(layer_losses)}
         loss_dict["early_exit_loss"] = total_loss.detach()
-        return total_loss, loss_dict
+        return total_loss, loss_dict, None
 
     def wrap_module(
         self,
