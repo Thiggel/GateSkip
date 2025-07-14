@@ -7,6 +7,11 @@ class ConfidenceMeasure(str, Enum):
     HIDDEN_STATE = "hidden_state"  # Cosine similarity between layers
 
 
+class EarlyExitMethod(str, Enum):
+    CALM = "calm"
+    FREE = "free"
+
+
 class EarlyExitConfig:
     """Configuration for early exiting mechanism"""
 
@@ -29,4 +34,22 @@ class EarlyExitConfig:
     )
     min_exit_layer: int = Field(
         1, description="Minimum layer to consider for early exiting"
+    )
+    early_exit_method: EarlyExitMethod = Field(
+        "calm", description="Which early exit technique to use"
+    )
+    use_free_distillation: bool = Field(
+        False,
+        description="Whether to use FREE's shallow-deep distillation loss",
+    )
+    use_free_speculative_decoding: bool = Field(
+        False,
+        description="Whether to compute speculative decoding KV cache in FREE",
+    )
+    free_shallow_layers: list[int] = Field(
+        [],
+        description="Indices defining the shallow sub-network for FREE",
+    )
+    free_distillation_loss_weight: float = Field(
+        1.0, description="Weight for the FREE distillation loss"
     )

@@ -4,6 +4,7 @@ from typing import Dict, Optional, List, Tuple, Any
 import math
 
 from experiment.configs.ModelConfig import ModelConfig
+from experiment.configs.EarlyExitConfig import EarlyExitMethod
 from .EarlyExitWrapper import EarlyExitWrapper
 
 
@@ -47,6 +48,27 @@ class ModelEarlyExit(nn.Module):
 
         self.exit_mask = None
 
+    def compute_free_distillation_loss(
+        self, shallow_states: List[torch.Tensor], deep_states: List[torch.Tensor]
+    ) -> Tuple[torch.Tensor, Dict[int, int]]:
+        """Compute FREE shallow-to-deep distillation loss."""
+        losses = []
+        mapping: Dict[int, int] = {}
+
+        for idx, s in enumerate(shallow_states):
+            mse_vals = []
+            for j, d in enumerate(deep_states):
+                mse_vals.append(torch.mean((s - d) ** 2))
+            mse_tensor = torch.stack(mse_vals)
+            m = int(torch.argmin(mse_tensor).item())
+            mapping[self.config.free_shallow_layers[idx]] = m
+            losses.append(mse_tensor[m])
+
+        if losses:
+            return torch.stack(losses).mean(), mapping
+        device = self._get_device()
+        return torch.tensor(0.0, device=device), mapping
+
     def compute_layer_loss_weights(self, num_layers: int) -> torch.Tensor:
         """
         Compute weights for layer losses based on configuration.
@@ -65,63 +87,84 @@ class ModelEarlyExit(nn.Module):
         lm_head: torch.nn.Module,
         labels: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        """
-        Compute combined loss across layers according to the CALM paper.
-
-        Args:
-            hidden_states: List of hidden states from each layer
-            lm_head: Language model head to project hidden states to vocabulary
-            labels: Target labels
-
-        Returns:
-            Total loss and dictionary of individual layer losses
-        """
-        # Skip the first element if it's input embeddings
+        """Compute the early exit loss for CALM or FREE."""
+        # Skip embeddings
         if len(hidden_states) > len(self.wrapped_modules) + 1:
-            hidden_states = hidden_states[1:]  # Skip input embeddings
+            hidden_states = hidden_states[1:]
 
+        if self.config.early_exit_method == EarlyExitMethod.FREE:
+            loss_dict: Dict[str, torch.Tensor] = {}
+
+            shallow_idx = (
+                max(self.config.free_shallow_layers)
+                if self.config.free_shallow_layers
+                else 0
+            )
+            shallow_hidden = hidden_states[shallow_idx]
+            deep_hidden = hidden_states[-1]
+
+            shift_labels = labels[..., 1:].contiguous()
+            loss_mask = shift_labels != -100
+
+            def ce(hid):
+                logits = lm_head(hid)
+                shift_logits = logits[..., :-1, :].contiguous()
+                loss = torch.nn.functional.cross_entropy(
+                    shift_logits.view(-1, shift_logits.size(-1)),
+                    shift_labels.view(-1),
+                    reduction="none",
+                    ignore_index=-100,
+                )
+                loss = loss.view(shift_labels.size())
+                masked_loss = loss.masked_fill(~loss_mask, 0.0)
+                return masked_loss.sum() / loss_mask.sum().clamp(min=1)
+
+            shallow_loss = ce(shallow_hidden)
+            deep_loss = ce(deep_hidden)
+
+            total_loss = shallow_loss + deep_loss
+            loss_dict["shallow_loss"] = shallow_loss.detach()
+            loss_dict["deep_loss"] = deep_loss.detach()
+
+            if self.config.use_free_distillation:
+                dist_loss, mapping = self.compute_free_distillation_loss(
+                    [hidden_states[i] for i in self.config.free_shallow_layers],
+                    hidden_states,
+                )
+                total_loss = total_loss + dist_loss * self.config.free_distillation_loss_weight
+                loss_dict["distillation_loss"] = dist_loss.detach()
+            loss_dict["early_exit_loss"] = total_loss.detach()
+            return total_loss, loss_dict
+
+        # CALM default behaviour
         num_layers = len(hidden_states)
         weights = self.compute_layer_loss_weights(num_layers)
         device = hidden_states[0].device
         weights = weights.to(device)
 
-        # Create shifted labels for causal LM loss
         shift_labels = labels[..., 1:].contiguous()
         loss_mask = shift_labels != -100
 
-        # Compute loss for each layer
         layer_losses = []
-        for i, layer_hidden in enumerate(hidden_states):
-            # Project to vocabulary
+        for layer_hidden in hidden_states:
             logits = lm_head(layer_hidden)
-
-            # Shift for causal LM
             shift_logits = logits[..., :-1, :].contiguous()
-
-            # Compute cross entropy loss
             loss = torch.nn.functional.cross_entropy(
                 shift_logits.view(-1, shift_logits.size(-1)),
                 shift_labels.view(-1),
                 reduction="none",
                 ignore_index=-100,
             )
-
-            # Apply masking and compute mean
             loss = loss.view(shift_labels.size())
             masked_loss = loss.masked_fill(~loss_mask, 0.0)
             layer_loss = masked_loss.sum() / loss_mask.sum().clamp(min=1)
             layer_losses.append(layer_loss)
 
-        # Combine losses with weights
         stacked_losses = torch.stack(layer_losses)
         total_loss = torch.sum(stacked_losses * weights)
 
-        # Create dictionary of individual losses for logging
-        loss_dict = {
-            f"layer_{i}_loss": loss.detach() for i, loss in enumerate(layer_losses)
-        }
+        loss_dict = {f"layer_{i}_loss": l.detach() for i, l in enumerate(layer_losses)}
         loss_dict["early_exit_loss"] = total_loss.detach()
-
         return total_loss, loss_dict
 
     def wrap_module(
@@ -244,9 +287,9 @@ class ModelEarlyExit(nn.Module):
                     # If we have stored KV states for this token at its exit layer,
                     # propagate them to the current layer
                     if kv_key in self.exit_key_values:
-                        # Here we would copy the stored KV states to the current layer's cache
-                        # This is model-specific and depends on the exact KV cache format
-                        pass
+                        if self.config.use_free_speculative_decoding:
+                            # Copy the stored KV states to current layer (speculative decoding)
+                            key_value_states = self.exit_key_values[kv_key]
 
         return key_value_states
 
