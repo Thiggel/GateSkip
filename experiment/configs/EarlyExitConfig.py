@@ -56,7 +56,6 @@ class EarlyExitConfig:
         1.0, description="Weight for the FREE distillation loss"
     )
 
-    # --- PABEE / DeeBERT settings ---
     patience: int = Field(
         3,
         description="Number of consecutive layers with unchanged prediction before exit",
