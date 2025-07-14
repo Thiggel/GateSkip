@@ -8,7 +8,7 @@
 #SBATCH --job-name=llama1b_baseline_wmt
 #SBATCH --output=job_logs/cot/llama1b_baseline_wmt-%A.out
 
-cd $HOME/Gating
+cd $HOME/GateSkip
 
 . jobs/environment.sh
 

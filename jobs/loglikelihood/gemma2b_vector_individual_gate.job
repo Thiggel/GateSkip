@@ -8,13 +8,13 @@
 #SBATCH --job-name=gemma2b_vector_individual_gate
 #SBATCH --output=job_logs/gemma2b_vector_individual_gate-%A.out
 
-cd $HOME/Gating
+cd $HOME/GateSkip
 
 . jobs/environment.sh
 
 srun python -m experiment \
   --model-name "google/gemma-2-2b" \
-  --dataset csqa_gsm8k_gen \
+  --dataset fineweb \
   --pretrained \
   --use-gating \
   --entropy-loss-weight 0.0 \
@@ -26,7 +26,7 @@ srun python -m experiment \
   --num-increasing-steps 6800 \
   --batch-size 1 \
   --eval-batch-size 16 \
-  --seq-length 4096 \
+  --seq-length 512 \
   --learning-rate 3e-6 \
   --warmup-steps 1000 \
   --lr-decay-steps 6800 \

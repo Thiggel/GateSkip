@@ -8,7 +8,7 @@
 #SBATCH --job-name=llama3b_vector_individual_gate
 #SBATCH --output=job_logs/cot/llama3b_vector_individual_gate-%A.out
 
-cd $HOME/Gating
+cd $HOME/GateSkip
 
 . jobs/environment.sh
 
