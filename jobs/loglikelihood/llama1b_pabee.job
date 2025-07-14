@@ -16,9 +16,8 @@ srun python -m experiment \
   --model-name "meta-llama/Llama-3.2-1B" \
   --pretrained \
   --use-early-exit \
-  --use-patience-exit \
+  --confidence-measure patience \
   --patience 3 \
-  --confidence-measure hidden_state \
   --eval-batch-size 128 \
   --seq-length 4096 \
   --finetune-mode full \
@@ -28,18 +27,3 @@ srun python -m experiment \
   --experiment-name llama1b_pabee \
   --project-name gateskip
 
-srun python -m experiment \
-  --model-name "meta-llama/Llama-3.2-1B" \
-  --pretrained \
-  --use-early-exit \
-  --use-patience-exit \
-  --patience 3 \
-  --confidence-measure softmax \
-  --eval-batch-size 128 \
-  --seq-length 4096 \
-  --finetune-mode full \
-  --mode evaluate \
-  --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
-  --num-fewshot 0 \
-  --experiment-name llama1b_pabee \
-  --project-name gateskip

@@ -73,11 +73,11 @@ class EarlyExitWrapper(nn.Module):
     ) -> torch.Tensor:
         """Compute confidence score based on configured measure.
 
-        When `use_patience_exit` is enabled, the confidence corresponds to the
+        For the PATIENCE measure (PABEE), the confidence corresponds to the
         number of consecutive layers that a token's argmax prediction remained
-        unchanged (PABEE).
+        unchanged.
         """
-        if self.config.use_patience_exit:
+        if self.config.confidence_measure == ConfidenceMeasure.PATIENCE:
             # For PABEE we track consecutive identical predictions
             if logits is None:
                 if hasattr(self.parent, "get_output_embeddings"):
@@ -164,6 +164,28 @@ class EarlyExitWrapper(nn.Module):
                 norm_prev = F.normalize(self.controller.prev_hidden_states, p=2, dim=-1)
                 confidence = torch.sum(norm_curr * norm_prev, dim=-1)
 
+        elif self.config.confidence_measure == ConfidenceMeasure.ENTROPY:
+            if logits is None:
+                if hasattr(self.parent, "get_output_embeddings"):
+                    output_embeddings = self.parent.get_output_embeddings()
+                else:
+                    output_embeddings = getattr(self.parent, "lm_head", None)
+                    if output_embeddings is None:
+                        output_embeddings = getattr(self.parent, "output_projection", None)
+
+                if output_embeddings is not None:
+                    logits = output_embeddings(hidden_states)
+
+            if logits is not None:
+                probs = F.softmax(logits, dim=-1)
+                entropy = -torch.sum(probs * torch.log(probs + 1e-12), dim=-1)
+                confidence = -entropy
+            else:
+                confidence = torch.zeros(
+                    hidden_states.shape[0],
+                    hidden_states.shape[1],
+                    device=hidden_states.device,
+                )
         else:
             confidence = torch.zeros(
                 hidden_states.shape[0],
@@ -213,14 +235,10 @@ class EarlyExitWrapper(nn.Module):
         if self.controller.exit_mask is None:
             self.controller.exit_mask = torch.zeros_like(confidence, dtype=torch.bool)
 
-        if self.config.use_patience_exit:
+        if self.config.confidence_measure == ConfidenceMeasure.PATIENCE:
             by_patience = confidence >= float(self.config.patience)
             by_objective = confidence > threshold
             exit_mask = torch.logical_or(by_patience, by_objective)
-        elif self.config.use_entropy_exit and logits is not None:
-            probs = F.softmax(logits, dim=-1)
-            entropy = -torch.sum(probs * torch.log(probs + 1e-12), dim=-1)
-            exit_mask = entropy < self.config.entropy_threshold
         else:
             exit_mask = confidence > threshold
 
@@ -273,7 +291,11 @@ class EarlyExitWrapper(nn.Module):
             )
 
         logits = None
-        if self.config.use_patience_exit or self.config.use_entropy_exit or self.config.confidence_measure == ConfidenceMeasure.SOFTMAX:
+        if self.config.confidence_measure in {
+            ConfidenceMeasure.SOFTMAX,
+            ConfidenceMeasure.PATIENCE,
+            ConfidenceMeasure.ENTROPY,
+        }:
             if hasattr(self.parent, "get_output_embeddings"):
                 output_embeddings = self.parent.get_output_embeddings()
             else:

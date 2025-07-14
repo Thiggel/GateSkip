@@ -5,6 +5,8 @@ from enum import Enum
 class ConfidenceMeasure(str, Enum):
     SOFTMAX = "softmax"  # Difference between top two softmax probabilities
     HIDDEN_STATE = "hidden_state"  # Cosine similarity between layers
+    ENTROPY = "entropy"  # Entropy of LM head distribution (DeeBERT)
+    PATIENCE = "patience"  # Consecutive agreement count (PABEE)
 
 
 class EarlyExitMethod(str, Enum):
@@ -55,17 +57,9 @@ class EarlyExitConfig:
     )
 
     # --- PABEE / DeeBERT settings ---
-    use_patience_exit: bool = Field(
-        False,
-        description="Exit based on consecutive agreement of token predictions",
-    )
     patience: int = Field(
         3,
         description="Number of consecutive layers with unchanged prediction before exit",
-    )
-    use_entropy_exit: bool = Field(
-        False,
-        description="Exit based on entropy of the LM head output (DeeBERT)",
     )
     entropy_threshold: float = Field(
         1.0, description="Entropy threshold for entropy-based early exit"

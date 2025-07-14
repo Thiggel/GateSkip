@@ -16,9 +16,8 @@ srun python -m experiment \
   --model-name "meta-llama/Llama-3.2-1B" \
   --pretrained \
   --use-early-exit \
-  --use-entropy-exit \
+  --confidence-measure entropy \
   --entropy-threshold 1.0 \
-  --confidence-measure hidden_state \
   --eval-batch-size 128 \
   --seq-length 4096 \
   --finetune-mode full \
@@ -28,18 +27,3 @@ srun python -m experiment \
   --experiment-name llama1b_deebert \
   --project-name gateskip
 
-srun python -m experiment \
-  --model-name "meta-llama/Llama-3.2-1B" \
-  --pretrained \
-  --use-early-exit \
-  --use-entropy-exit \
-  --entropy-threshold 1.0 \
-  --confidence-measure softmax \
-  --eval-batch-size 128 \
-  --seq-length 4096 \
-  --finetune-mode full \
-  --mode evaluate \
-  --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
-  --num-fewshot 0 \
-  --experiment-name llama1b_deebert \
-  --project-name gateskip
