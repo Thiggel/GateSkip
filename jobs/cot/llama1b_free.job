@@ -18,6 +18,7 @@ srun python -m experiment \
   --pretrained \
   --use-early-exit \
   --early-exit-method free \
+  --use-free-distillation \
   --use-free-speculative-decoding \
   --batch-size 1 \
   --eval-batch-size 16 \
@@ -27,8 +28,8 @@ srun python -m experiment \
   --lr-decay-steps 6800 \
   --max-epochs 1 \
   --finetune-mode full \
-  --experiment-name llama1b_free \
-  --save-to-checkpoint llama1b_free \
+  --experiment-name llama1b_free_cot \
+  --save-to-checkpoint llama1b_free_cot \
   --project-name gateskip \
   --enable-logging
  
@@ -47,8 +48,8 @@ srun python -m experiment \
   --mode evaluate \
   --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
   --num-fewshot 0 \
-  --experiment-name llama1b_free_cot \
-  --load-from-checkpoint llama1b_free \
+  --experiment-name llama1b_free_cot_hss \
+  --load-from-checkpoint llama1b_free_cot \
   --project-name gateskip
 
 srun python -m experiment \
@@ -66,7 +67,7 @@ srun python -m experiment \
   --mode evaluate \
   --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
   --num-fewshot 0 \
-  --experiment-name llama1b_free_loglikelihood \
-  --load-from-checkpoint llama1b_free \
+  --experiment-name llama1b_free_cot_softmax \
+  --load-from-checkpoint llama1b_free_cot \
   --project-name gateskip
 
