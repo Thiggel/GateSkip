@@ -1,0 +1,4 @@
+Benchmark,Accuracy @0%
+csqa_gen,1.75
+gsm8k,0.0
+piqa_gen,4.75
