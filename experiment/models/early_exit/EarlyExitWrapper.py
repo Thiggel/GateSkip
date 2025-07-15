@@ -51,7 +51,6 @@ class EarlyExitWrapper(nn.Module):
         if not self.config.use_decaying_threshold:
             p = self.config.desired_skip_ratio
             current_layer_skip_ratio = 1 - (1 - p) ** (self.layer_idx + 1)
-            print(f"Current layer skip ratio: {current_layer_skip_ratio:.2f}")
             threshold = self.threshold_finder.find_threshold(confidence, current_layer_skip_ratio, skip_below_threshold=False)
             return threshold
 
@@ -66,10 +65,75 @@ class EarlyExitWrapper(nn.Module):
         return min(1.0, max(0.0, self.config.base_threshold * decay))
 
     def compute_confidence(
-        self, hidden_states: torch.Tensor, prev_hidden: Optional[torch.Tensor] = None
+        self,
+        hidden_states: torch.Tensor,
+        prev_hidden: Optional[torch.Tensor] = None,
+        logits: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Compute confidence score based on configured measure."""
-        if self.config.confidence_measure == ConfidenceMeasure.SOFTMAX:
+        """Compute confidence score based on configured measure.
+
+        For the PATIENCE measure (PABEE), the confidence corresponds to the
+        number of consecutive layers that a token's argmax prediction remained
+        unchanged.
+        """
+        if self.config.confidence_measure == ConfidenceMeasure.PATIENCE:
+            if self.controller.exit_mask is None:
+                self.controller.exit_mask = torch.zeros(
+                    hidden_states.shape[0], 
+                    hidden_states.shape[1],
+                    device=hidden_states.device,
+                    dtype=torch.bool,
+                )
+
+            # For PABEE we track consecutive identical predictions
+            if logits is None:
+                if hasattr(self.parent, "get_output_embeddings"):
+                    output_embeddings = self.parent.get_output_embeddings()
+                else:
+                    output_embeddings = getattr(self.parent, "lm_head", None)
+                    if output_embeddings is None:
+                        output_embeddings = getattr(self.parent, "output_projection", None)
+
+                if output_embeddings is not None:
+                    logits = output_embeddings(hidden_states)
+            if logits is None:
+                predictions = torch.zeros(
+                    hidden_states.shape[0],
+                    hidden_states.shape[1],
+                    device=hidden_states.device,
+                    dtype=torch.long,
+                )
+            else:
+                predictions = torch.argmax(logits, dim=-1)
+
+            if self.controller.patience_counters is None:
+                self.controller.patience_counters = torch.zeros_like(predictions)
+            if self.controller.prev_predictions is None:
+                self.controller.prev_predictions = predictions
+
+            unchanged = predictions == self.controller.prev_predictions
+            if self.controller.exit_mask is not None:
+                mask = ~self.controller.exit_mask
+                unchanged = unchanged & mask
+            self.controller.patience_counters = torch.where(
+                unchanged,
+                self.controller.patience_counters + 1,
+                torch.where(
+                    self.controller.exit_mask, self.controller.patience_counters, torch.zeros_like(self.controller.patience_counters)
+                ),
+            )
+
+            self.controller.prev_predictions = torch.where(
+                self.controller.exit_mask
+                if self.controller.exit_mask is not None
+                else torch.zeros_like(predictions, dtype=torch.bool),
+                self.controller.prev_predictions,
+                predictions,
+            )
+
+            confidence = self.controller.patience_counters.float()
+
+        elif self.config.confidence_measure == ConfidenceMeasure.SOFTMAX:
             # Calculate the gap between top two probabilities in softmax distribution
             # Get output embeddings from parent model
             if hasattr(self.parent, "get_output_embeddings"):
@@ -107,6 +171,28 @@ class EarlyExitWrapper(nn.Module):
                 norm_prev = F.normalize(self.controller.prev_hidden_states, p=2, dim=-1)
                 confidence = torch.sum(norm_curr * norm_prev, dim=-1)
 
+        elif self.config.confidence_measure == ConfidenceMeasure.ENTROPY:
+            if logits is None:
+                if hasattr(self.parent, "get_output_embeddings"):
+                    output_embeddings = self.parent.get_output_embeddings()
+                else:
+                    output_embeddings = getattr(self.parent, "lm_head", None)
+                    if output_embeddings is None:
+                        output_embeddings = getattr(self.parent, "output_projection", None)
+
+                if output_embeddings is not None:
+                    logits = output_embeddings(hidden_states)
+
+            if logits is not None:
+                probs = F.softmax(logits, dim=-1)
+                entropy = -torch.sum(probs * torch.log(probs + 1e-12), dim=-1)
+                confidence = -entropy
+            else:
+                confidence = torch.zeros(
+                    hidden_states.shape[0],
+                    hidden_states.shape[1],
+                    device=hidden_states.device,
+                )
         else:
             confidence = torch.zeros(
                 hidden_states.shape[0],
@@ -117,7 +203,11 @@ class EarlyExitWrapper(nn.Module):
         return confidence
 
     def should_exit(
-        self, confidence: torch.Tensor, step_idx: int, max_steps: int = 100
+        self,
+        confidence: torch.Tensor,
+        step_idx: int,
+        logits: Optional[torch.Tensor] = None,
+        max_steps: int = 100,
     ) -> torch.Tensor:
         """Determine whether to exit early based on confidence and threshold."""
         if self.config.early_exit_method == EarlyExitMethod.FREE:
@@ -152,8 +242,12 @@ class EarlyExitWrapper(nn.Module):
         if self.controller.exit_mask is None:
             self.controller.exit_mask = torch.zeros_like(confidence, dtype=torch.bool)
 
-
-        exit_mask = confidence > threshold
+        if self.config.confidence_measure == ConfidenceMeasure.PATIENCE:
+            by_patience = confidence >= float(self.config.patience)
+            by_objective = confidence > threshold
+            exit_mask = torch.logical_or(by_patience, by_objective)
+        else:
+            exit_mask = confidence > threshold
 
         self.controller.exit_mask = torch.logical_or(
             self.controller.exit_mask, exit_mask
@@ -185,6 +279,8 @@ class EarlyExitWrapper(nn.Module):
         if self.layer_idx == 0:
             self.controller.exit_mask = None
             self.controller.prev_hidden_states = None
+            self.controller.prev_predictions = None
+            self.controller.patience_counters = None
 
         # Just pass through to the wrapped module
         outputs = self.module(hidden_states, *args, **kwargs)
@@ -196,18 +292,34 @@ class EarlyExitWrapper(nn.Module):
 
         if self.controller.exit_mask is not None and self.controller.prev_hidden_states is not None:
             main_output = torch.where(
-                self.controller.exit_mask.unsqueeze(-1).repeat(1, 1, self.controller.prev_hidden_states.shape[-1]), self.controller.prev_hidden_states, main_output
+                self.controller.exit_mask.unsqueeze(-1).repeat(1, 1, self.controller.prev_hidden_states.shape[-1]),
+                self.controller.prev_hidden_states,
+                main_output,
             )
 
+        logits = None
+        if self.config.confidence_measure in {
+            ConfidenceMeasure.SOFTMAX,
+            ConfidenceMeasure.PATIENCE,
+            ConfidenceMeasure.ENTROPY,
+        }:
+            if hasattr(self.parent, "get_output_embeddings"):
+                output_embeddings = self.parent.get_output_embeddings()
+            else:
+                output_embeddings = getattr(self.parent, "lm_head", None)
+                if output_embeddings is None:
+                    output_embeddings = getattr(self.parent, "output_projection", None)
+            if output_embeddings is not None:
+                logits = output_embeddings(main_output)
+
         # Compute confidence
-        self.current_confidence = self.compute_confidence(main_output, prev_hidden)
+        self.current_confidence = self.compute_confidence(main_output, prev_hidden, logits)
 
 
         self.controller.prev_hidden_states = main_output
 
-
         # Determine exit decision - for tracking purposes
-        self.current_exit_decision = self.should_exit(self.current_confidence, step_idx)
+        self.current_exit_decision = self.should_exit(self.current_confidence, step_idx, logits)
 
         return outputs
 

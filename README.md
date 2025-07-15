@@ -16,6 +16,7 @@ GateSkip addresses the growing cost of running large decoder‑only Transformers
 * **Sparsity‑driven training:** Joint cross‑entropy + L2 gate penalty yields fine‑grained token saving.
 * **Token‑level dynamic skipping:** Budget decay during training (100→80 % tokens) and fixed budgets at inference.
 * **Compatibility & analysis:** Works with quantization and reveals novel patterns in BOS‑token importance.
+* **Patience & entropy exits:** Training‑free PABEE and DeeBERT options allow early termination when predictions stabilise or entropy drops below a threshold.
 
 ## Repository Structure
 
@@ -52,6 +53,8 @@ Below is a mapping from high‑level experiments to the .job files in jobs/:
 * **Baseline WMT (translation):** llama1b_baseline_wmt.job
 * **CALM (early exit):** llama1b_calm.job
 * **FREE (early exit):** llama1b_free.job
+* **PABEE (patience exit):** llama1b_pabee.job
+* **DeeBERT (entropy exit):** llama1b_deebert.job
 * **Mixture‑of‑Depths:** llama1b_mod.job
 * **GateSkip Variants (Llama‑1B):**
 
@@ -74,6 +77,8 @@ Below is a mapping from high‑level experiments to the .job files in jobs/:
 * **Baseline (random skipping):** llama1b_baseline.job
 * **CALM:** llama1b_calm.job
 * **FREE:** llama1b_free.job
+* **PABEE:** llama1b_pabee.job
+* **DeeBERT:** llama1b_deebert.job
 * **Mixture‑of‑Depths:** llama1b_mod.job
 * **GateSkip Variants (Llama‑1B):** scalar, vector, before‑gate, MLP, shared (same names as above)
 * **Scalability Ablations:** Gemma‑2, Llama‑3B, Llama‑8B (same names as above)
