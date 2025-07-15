@@ -51,7 +51,6 @@ class EarlyExitWrapper(nn.Module):
         if not self.config.use_decaying_threshold:
             p = self.config.desired_skip_ratio
             current_layer_skip_ratio = 1 - (1 - p) ** (self.layer_idx + 1)
-            print(f"Current layer skip ratio: {current_layer_skip_ratio:.2f}")
             threshold = self.threshold_finder.find_threshold(confidence, current_layer_skip_ratio, skip_below_threshold=False)
             return threshold
 
@@ -78,6 +77,14 @@ class EarlyExitWrapper(nn.Module):
         unchanged.
         """
         if self.config.confidence_measure == ConfidenceMeasure.PATIENCE:
+            if self.controller.exit_mask is None:
+                self.controller.exit_mask = torch.zeros(
+                    hidden_states.shape[0], 
+                    hidden_states.shape[1],
+                    device=hidden_states.device,
+                    dtype=torch.bool,
+                )
+
             # For PABEE we track consecutive identical predictions
             if logits is None:
                 if hasattr(self.parent, "get_output_embeddings"):

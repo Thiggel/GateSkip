@@ -18,7 +18,7 @@ srun python -m experiment \
   --use-early-exit \
   --confidence-measure entropy \
   --entropy-threshold 1.0 \
-  --eval-batch-size 128 \
+  --eval-batch-size 64 \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
