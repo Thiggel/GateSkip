@@ -32,8 +32,6 @@ class ThresholdFinder:
         if desired_skip_ratio == 0.0:
             return do_not_skip_default_value
 
-        jitter = 1e-6 * torch.rand_like(scores)
-        scores = scores + jitter
         quantile = desired_skip_ratio if skip_below_threshold else 1 - desired_skip_ratio
         threshold = torch.quantile(scores, quantile, interpolation='linear')
 

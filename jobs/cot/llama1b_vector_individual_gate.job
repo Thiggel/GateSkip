@@ -12,30 +12,30 @@ cd $HOME/GateSkip
 
 . jobs/environment.sh
 
-# srun python -m experiment \
-#   --model-name "meta-llama/Llama-3.2-1B" \
-#   --dataset csqa_gsm8k_gen \
-#   --pretrained \
-#   --use-gating \
-#   --entropy-loss-weight 0.0 \
-#   --sparsity-loss-weight 1.0 \
-#   --skip-modules \
-#   --increasing-threshold \
-#   --start-thr-percentile 0.0 \
-#   --end-thr-percentile 0.2 \
-#   --num-increasing-steps 6800 \
-#   --batch-size 1 \
-#   --eval-batch-size 16 \
-#   --seq-length 4096 \
-#   --learning-rate 3e-6 \
-#   --warmup-steps 1000 \
-#   --lr-decay-steps 6800 \
-#   --max-epochs 1 \
-#   --finetune-mode full \
-#   --experiment-name llama1b_vector_individual_gate \
-#   --save-to-checkpoint llama1b_vector_individual_gate \
-#   --project-name gateskip \
-#   --enable-logging
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --use-gating \
+  --entropy-loss-weight 0.0 \
+  --sparsity-loss-weight 1.0 \
+  --skip-modules \
+  --increasing-threshold \
+  --start-thr-percentile 0.0 \
+  --end-thr-percentile 0.2 \
+  --num-increasing-steps 6800 \
+  --batch-size 1 \
+  --eval-batch-size 16 \
+  --seq-length 4096 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --finetune-mode full \
+  --experiment-name llama1b_vector_individual_gate \
+  --save-to-checkpoint llama1b_vector_individual_gate \
+  --project-name gateskip \
+  --enable-logging
  
 srun python -m experiment \
   --model-name "meta-llama/Llama-3.2-1B" \

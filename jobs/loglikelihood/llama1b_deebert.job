@@ -4,11 +4,11 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=02:30:00
+#SBATCH --time=04:30:00
 #SBATCH --job-name=llama1b_deebert
 #SBATCH --output=job_logs/loglikelihood/llama1b_deebert-%A.out
 
-cd $HOME/Gating
+cd $HOME/GateSkip
 
 . jobs/environment.sh
 
@@ -24,6 +24,6 @@ srun python -m experiment \
   --mode evaluate \
   --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
   --num-fewshot 0 \
-  --experiment-name llama1b_deebert \
+  --experiment-name llama1b_deebert_loglikelihood \
   --project-name gateskip
 

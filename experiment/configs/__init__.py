@@ -3,6 +3,6 @@ from .ModelConfig import ModelConfig, FinetuneMode
 from .TrainingConfig import TrainingConfig
 from .EvaluationConfig import EvaluationConfig
 from .GatingConfig import GatingConfig
-from .EarlyExitConfig import EarlyExitConfig
+from .EarlyExitConfig import EarlyExitConfig, EarlyExitMethod
 from .SkipLayerConfig import SkipLayerConfig
 from .LayerRange import LayerRange

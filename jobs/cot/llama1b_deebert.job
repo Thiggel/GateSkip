@@ -4,11 +4,11 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=2:00:00
+#SBATCH --time=8:00:00
 #SBATCH --job-name=llama1b_deebert
 #SBATCH --output=job_logs/cot/llama1b_deebert-%A.out
 
-cd $HOME/Gating
+cd $HOME/GateSkip
 
 . jobs/environment.sh
 
@@ -25,5 +25,6 @@ srun python -m experiment \
   --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
   --num-fewshot 0 \
   --experiment-name llama1b_deebert \
+  --load-from-checkpoint llama1b_baseline \
   --project-name gateskip
 

@@ -44,13 +44,39 @@ class EarlyExitWrapper(nn.Module):
 
         self.threshold_finder = ThresholdFinder()
 
+    def calm_current_layer_skip_ratio(self) -> float:
+        return 1 - (1 - self.config.desired_skip_ratio) ** (self.layer_idx + 1)
+
+    def num_layers(self) -> int:
+        if hasattr(self.parent, "config") and hasattr(self.parent.config, "num_layers"):
+            return self.parent.config.num_layers
+        elif hasattr(self.parent, "config") and hasattr(self.parent.config, "num_hidden_layers"):
+            return self.parent.config.num_hidden_layers
+        else:
+            raise ValueError("Parent model does not have num_layers or num_hidden_layers defined.")
+
+
+    def free_current_layer_skip_ratio(self) -> float:
+        deep_ratio = 1 - (self.free_shallow_last / self.num_layers())
+        desired_skip_ratio = min(self.config.desired_skip_ratio, deep_ratio)
+        return desired_skip_ratio / deep_ratio
+
+    def current_layer_skip_ratio(self) -> float:
+        if self.config.early_exit_method == EarlyExitMethod.CALM:
+            return self.calm_current_layer_skip_ratio()
+        elif self.config.early_exit_method == EarlyExitMethod.FREE:
+            return self.free_current_layer_skip_ratio()
+        else:
+            raise ValueError(
+                f"Unsupported early exit method: {self.config.early_exit_method}"
+            )
+
     def compute_threshold(
         self, step_idx: int, confidence: torch.Tensor, max_steps: int = 100
     ) -> float:
         """Compute the decaying threshold based on generation step."""
         if not self.config.use_decaying_threshold:
-            p = self.config.desired_skip_ratio
-            current_layer_skip_ratio = 1 - (1 - p) ** (self.layer_idx + 1)
+            current_layer_skip_ratio = self.current_layer_skip_ratio()
             threshold = self.threshold_finder.find_threshold(confidence, current_layer_skip_ratio, skip_below_threshold=False)
             return threshold
 
@@ -124,9 +150,7 @@ class EarlyExitWrapper(nn.Module):
             )
 
             self.controller.prev_predictions = torch.where(
-                self.controller.exit_mask
-                if self.controller.exit_mask is not None
-                else torch.zeros_like(predictions, dtype=torch.bool),
+                self.controller.exit_mask,
                 self.controller.prev_predictions,
                 predictions,
             )
@@ -200,7 +224,14 @@ class EarlyExitWrapper(nn.Module):
                 device=hidden_states.device,
             )
 
-        return confidence
+        jitter = 1e-6 * torch.rand_like(confidence)
+
+        return confidence + jitter
+
+    @property
+    def free_shallow_last(self) -> int:
+        """Get the last layer index for shallow exits in free mode."""
+        return max(self.config.free_shallow_layers) if self.config.free_shallow_layers else 0
 
     def should_exit(
         self,
@@ -211,13 +242,11 @@ class EarlyExitWrapper(nn.Module):
     ) -> torch.Tensor:
         """Determine whether to exit early based on confidence and threshold."""
         if self.config.early_exit_method == EarlyExitMethod.FREE:
-            shallow_last = (
-                max(self.config.free_shallow_layers)
-                if self.config.free_shallow_layers
-                else 0
-            )
-            if self.layer_idx != shallow_last:
+            if self.layer_idx < self.free_shallow_last:
                 return torch.zeros_like(confidence, dtype=torch.bool)
+            elif self.layer_idx > self.free_shallow_last:
+                self.percent_skipped = self.controller.exit_mask.float().mean().item()
+                return self.controller.exit_mask
 
         # Fixed exit layer takes precedence
         if self.config.fixed_exit_layer > 0:
@@ -242,12 +271,7 @@ class EarlyExitWrapper(nn.Module):
         if self.controller.exit_mask is None:
             self.controller.exit_mask = torch.zeros_like(confidence, dtype=torch.bool)
 
-        if self.config.confidence_measure == ConfidenceMeasure.PATIENCE:
-            by_patience = confidence >= float(self.config.patience)
-            by_objective = confidence > threshold
-            exit_mask = torch.logical_or(by_patience, by_objective)
-        else:
-            exit_mask = confidence > threshold
+        exit_mask = confidence > threshold
 
         self.controller.exit_mask = torch.logical_or(
             self.controller.exit_mask, exit_mask
@@ -256,7 +280,6 @@ class EarlyExitWrapper(nn.Module):
         percent_skipped = self.controller.exit_mask.float().mean().item()
 
         self.percent_skipped = percent_skipped
-
 
         return self.controller.exit_mask
 

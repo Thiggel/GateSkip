@@ -83,6 +83,8 @@ def main():
         if isinstance(val, dict) and not (bm.startswith("mmlu") and bm != "mmlu_stem")
     ]
 
+    benchmarks = [benchmark for benchmark in benchmarks if benchmark != "piqa_gen"]
+
     out_dir = args.json_file.with_suffix("").name
     Path(out_dir).mkdir(exist_ok=True)
 

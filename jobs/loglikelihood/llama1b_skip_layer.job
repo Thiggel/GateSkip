@@ -12,24 +12,24 @@ cd $HOME/GateSkip
 
 . jobs/environment.sh
 
- srun python -m experiment \
-   --model-name "meta-llama/Llama-3.2-1B" \
-   --dataset fineweb \
-   --pretrained \
-   --use-skip-layer \
-   --skip-threshold 0.0 \
-   --batch-size 1 \
-   --eval-batch-size 16 \
-   --seq-length 512 \
-   --learning-rate 3e-6 \
-   --warmup-steps 1000 \
-   --lr-decay-steps 15000 \
-   --max-epochs 1 \
-   --finetune-mode full \
-   --experiment-name llama1b_skip_layer_loglikelihood \
-   --save-to-checkpoint llama1b_skip_layer_loglikelihood \
-   --project-name gateskip \
-   --enable-logging
+ #srun python -m experiment \
+ #  --model-name "meta-llama/Llama-3.2-1B" \
+ #  --dataset fineweb \
+ #  --pretrained \
+ #  --use-skip-layer \
+ #  --skip-threshold 0.0 \
+ #  --batch-size 1 \
+ #  --eval-batch-size 16 \
+ #  --seq-length 512 \
+ #  --learning-rate 3e-6 \
+ #  --warmup-steps 1000 \
+ #  --lr-decay-steps 15000 \
+ #  --max-epochs 1 \
+ #  --finetune-mode full \
+ #  --experiment-name llama1b_skip_layer_loglikelihood \
+ #  --save-to-checkpoint llama1b_skip_layer_loglikelihood \
+ #  --project-name gateskip \
+ #  --enable-logging
  
 srun python -m experiment \
   --model-name "meta-llama/Llama-3.2-1B" \

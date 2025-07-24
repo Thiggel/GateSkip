@@ -16,7 +16,7 @@ import json
 
 from experiment.experiment import Runner
 from experiment.experiment import ExperimentConfig
-from experiment.configs import ModelConfig, DataConfig, TrainingConfig, EvaluationConfig
+from experiment.configs import ModelConfig, DataConfig, TrainingConfig, EvaluationConfig, EarlyExitMethod
 from experiment.model_evaluator import ModelEvaluator
 from experiment.models.mixture_of_depths import ModWrapper
 from experiment.models.early_exit import EarlyExitWrapper
@@ -232,13 +232,13 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
 
         # percentages: 0.05, 0.10, …, 1.00
         for pct in tqdm(
-            [0.00, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
+            [0.25, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
             desc="running full eval",
             leave=False,
         ):
             model.percent_tokens_skipped = []
 
-            if self.model_config.use_early_exit:
+            if self.model_config.use_early_exit and self.model_config.early_exit_method != EarlyExitMethod.FREE:
                 N = len(model.model.model.layers)
                 self.model_config.desired_skip_ratio = self.p_for_saved_fraction(
                     pct, N
