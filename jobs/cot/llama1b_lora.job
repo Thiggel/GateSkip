@@ -1,0 +1,90 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=16
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=2:00:00
+#SBATCH --job-name=llama1b_lora
+#SBATCH --output=job_logs/cot/llama1b_lora-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+# Baseline fine-tuning with LoRA
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --batch-size 1 \
+  --eval-batch-size 16 \
+  --seq-length 4096 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --finetune-mode lora \
+  --experiment-name llama1b_baseline_lora \
+  --save-to-checkpoint llama1b_baseline_lora \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --pretrained \
+  --use-gating \
+  --no-one-gate-per-layer \
+  --skip-modules \
+  --randomly-skip \
+  --no-actually-gate \
+  --eval-batch-size 128 \
+  --seq-length 4096 \
+  --finetune-mode lora \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
+  --num-fewshot 0 \
+  --experiment-name llama1b_baseline_lora \
+  --load-from-checkpoint llama1b_baseline_lora \
+  --project-name gateskip
+
+# GateSkip fine-tuning with LoRA (vector individual gate)
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --use-gating \
+  --entropy-loss-weight 0.0 \
+  --sparsity-loss-weight 1.0 \
+  --skip-modules \
+  --increasing-threshold \
+  --start-thr-percentile 0.0 \
+  --end-thr-percentile 0.2 \
+  --num-increasing-steps 6800 \
+  --batch-size 1 \
+  --eval-batch-size 16 \
+  --seq-length 4096 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --finetune-mode lora \
+  --experiment-name llama1b_vector_individual_gate_lora \
+  --save-to-checkpoint llama1b_vector_individual_gate_lora \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --pretrained \
+  --use-gating \
+  --skip-modules \
+  --eval-batch-size 128 \
+  --seq-length 4096 \
+  --finetune-mode lora \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
+  --num-fewshot 0 \
+  --experiment-name llama1b_vector_individual_gate_lora \
+  --load-from-checkpoint llama1b_vector_individual_gate_lora \
+  --project-name gateskip
