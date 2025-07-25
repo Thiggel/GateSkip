@@ -48,6 +48,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
         self.model.forward = self.forward
 
         if hasattr(self.model, "base_model"):
+            self.old_forward = self.model.base_model.forward
             self.model.base_model.forward = self.forward
 
         self.percent_tokens_skipped = []
@@ -82,8 +83,6 @@ class DefaultLightningModule(LightningModule, HasLayers):
                 module.current_validity_mask = validity_mask
 
     def forward(self, input_ids, **kwargs):
-        print("HEYY")
-        exit()
         if hasattr(self.model, "early_exit"):
             self.model.early_exit.total_tokens = input_ids.size(-1)
         self.give_global_step_to_gates(input_ids)

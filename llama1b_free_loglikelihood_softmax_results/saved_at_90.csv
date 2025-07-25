@@ -1,0 +1,8 @@
+Benchmark,Compute Saved @90%
+commonsense_qa,61.20297412746376
+hellaswag,61.20297412746376
+mmlu_stem,61.20297412746376
+openbookqa,61.20297412746376
+piqa,61.20297412746376
+squadv2,
+winogrande,61.20297412746376
