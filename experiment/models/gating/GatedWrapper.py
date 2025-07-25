@@ -155,8 +155,6 @@ class GatedWrapper(nn.Module):
             num_skipped / total_tokens if total_tokens > 0 else 0.0
         )
 
-        print(self.layer_idx, self.current_percent_tokens_skipped)
-
     def update_kv_cache(
         self,
         module_output: tuple,

@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=2:00:00
+#SBATCH --time=4:00:00
 #SBATCH --job-name=llama1b_vector_individual_gate_mmlu_gen
 #SBATCH --output=job_logs/cot/llama1b_vector_individual_gate_mmlu_gen-%A.out
 
@@ -21,7 +21,7 @@ srun python -m experiment \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
-  --evaluation-metrics mmlu_gen \
+  --evaluation-metrics mmlu_gen,piqa_gen \
   --num-fewshot 0 \
   --experiment-name llama1b_vector_individual_gate \
   --load-from-checkpoint llama1b_vector_individual_gate \

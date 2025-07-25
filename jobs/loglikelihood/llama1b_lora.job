@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=02:30:00
+#SBATCH --time=12:30:00
 #SBATCH --job-name=llama1b_lora
 #SBATCH --output=job_logs/loglikelihood/llama1b_lora-%A.out
 

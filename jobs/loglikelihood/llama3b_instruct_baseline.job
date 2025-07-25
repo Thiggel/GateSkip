@@ -4,16 +4,16 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=02:30:00
-#SBATCH --job-name=llama1b_instruct_loglikelihood_baseline
-#SBATCH --output=job_logs/loglikelihood/llama1b_instruct_loglikelihood_baseline-%A.out
+#SBATCH --time=06:30:00
+#SBATCH --job-name=llama3b_instruct_loglikelihood_baseline
+#SBATCH --output=job_logs/loglikelihood/llama3b_instruct_loglikelihood_baseline-%A.out
 
 cd $HOME/GateSkip
 
 . jobs/environment.sh
 
 srun python -m experiment \
-  --model-name "meta-llama/Llama-3.2-1B-Instruct" \
+  --model-name "meta-llama/Llama-3.2-3B-Instruct" \
   --dataset fineweb \
   --pretrained \
   --batch-size 1 \
@@ -24,25 +24,25 @@ srun python -m experiment \
   --lr-decay-steps 6800 \
   --max-epochs 1 \
   --finetune-mode full \
-  --experiment-name llama1b_instruct_loglikelihood_baseline \
-  --save-to-checkpoint llama1b_instruct_loglikelihood_baseline \
+  --experiment-name llama3b_instruct_loglikelihood_baseline \
+  --save-to-checkpoint llama3b_instruct_loglikelihood_baseline \
   --project-name gateskip \
   --enable-logging
  
 srun python -m experiment \
-  --model-name "meta-llama/Llama-3.2-1B-Instruct" \
+  --model-name "meta-llama/Llama-3.2-3B-Instruct" \
   --pretrained \
   --use-gating \
   --skip-modules \
   --no-one-gate-per-layer \
   --randomly-skip \
   --no-actually-gate \
-  --eval-batch-size 128 \
+  --eval-batch-size 32 \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
   --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
   --num-fewshot 0 \
-  --experiment-name llama1b_instruct_loglikelihood_baseline \
-  --load-from-checkpoint llama1b_instruct_loglikelihood_baseline \
+  --experiment-name llama3b_instruct_loglikelihood_baseline \
+  --load-from-checkpoint llama3b_instruct_loglikelihood_baseline \
   --project-name gateskip

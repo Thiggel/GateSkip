@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=02:30:00
+#SBATCH --time=8:00:00
 #SBATCH --job-name=llama1b_calm
 #SBATCH --output=job_logs/loglikelihood/llama1b_calm-%A.out
 
@@ -41,8 +41,8 @@ srun python -m experiment \
   --mode evaluate \
   --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
   --num-fewshot 0 \
-  --experiment-name llama1b_calm \
-  --load-from-checkpoint llama1b-csqa-gsm8k-early-exit \
+  --experiment-name llama1b_calm_loglikelihood_extended_hss \
+  --load-from-checkpoint llama1b_calm_extended_fineweb \
   --project-name gateskip
 
 srun python -m experiment \
@@ -56,7 +56,7 @@ srun python -m experiment \
   --mode evaluate \
   --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
   --num-fewshot 0 \
-  --experiment-name llama1b_calm \
-  --load-from-checkpoint llama1b-csqa-gsm8k-early-exit \
+  --experiment-name llama1b_calm_loglikelihood_extended_softmax \
+  --load-from-checkpoint llama1b_calm_extended_fineweb \
   --project-name gateskip
 
