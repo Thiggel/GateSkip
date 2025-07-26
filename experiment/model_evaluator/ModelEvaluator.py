@@ -8,6 +8,7 @@ from lm_eval import evaluator
 from lm_eval.models.huggingface import HFLM
 import torch
 from transformers import PreTrainedTokenizer
+from typing import Optional
 import os
 
 
@@ -30,9 +31,12 @@ class ModelEvaluator:
 
         self.tokenizer = tokenizer
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.device_count() > 1:
+            self.device = None
+        else:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.model = self.model.to(self.device)
 
-        self.model = self.model.to(self.device)
         self.model.eval()
 
     def get_gen_kwargs(self, generation_mode: GenerationMode) -> dict[str, any]:
