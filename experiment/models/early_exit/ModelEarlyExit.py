@@ -97,7 +97,7 @@ class ModelEarlyExit(nn.Module):
         if len(hidden_states) > len(self.wrapped_modules) + 1:
             hidden_states = hidden_states[1:]
 
-        if self.config.early_exit_method == EarlyExitMethod.FREE:
+        if self.config.early_exit_method in {EarlyExitMethod.FREE, EarlyExitMethod.LAYERSKIP}:
             loss_dict: Dict[str, torch.Tensor] = {}
 
             shallow_idx = (
@@ -132,7 +132,7 @@ class ModelEarlyExit(nn.Module):
             loss_dict["deep_loss"] = deep_loss.detach()
 
             mapping = None
-            if self.config.use_free_distillation:
+            if self.config.early_exit_method == EarlyExitMethod.FREE and self.config.use_free_distillation:
                 dist_loss, mapping = self.compute_free_distillation_loss(
                     [hidden_states[i] for i in range(*self.config.free_shallow_layers)],
                     [hidden_state for index, hidden_state in enumerate(hidden_states) if index not in range(*self.config.free_shallow_layers)],

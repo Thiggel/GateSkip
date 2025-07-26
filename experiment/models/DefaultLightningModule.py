@@ -122,7 +122,29 @@ class DefaultLightningModule(LightningModule, HasLayers):
             self.model.early_exit.reset_statistics()
 
         self.metrics_logger.dump_first_batch(kwargs)
-        output = self.model.generate(*args, **kwargs)
+
+        if self.config.use_early_exit and self.config.early_exit_method == EarlyExitMethod.LAYERSKIP:
+            draft = self.model.generate(*args, **kwargs)
+            original_method = self.config.early_exit_method
+            original_ratio = self.config.desired_skip_ratio
+            self.config.early_exit_method = EarlyExitMethod.CALM
+            self.config.desired_skip_ratio = 0.0
+            with torch.no_grad():
+                _ = self.model(draft)
+            self.config.early_exit_method = original_method
+            self.config.desired_skip_ratio = original_ratio
+            output = draft
+        elif self.config.use_gating and self.config.use_self_speculative_decoding:
+            original_ratio = self.config.desired_skip_ratio
+            self.config.desired_skip_ratio = self.config.self_speculative_budget
+            draft = self.model.generate(*args, **kwargs)
+            self.config.desired_skip_ratio = 0.0
+            with torch.no_grad():
+                _ = self.model(draft)
+            self.config.desired_skip_ratio = original_ratio
+            output = draft
+        else:
+            output = self.model.generate(*args, **kwargs)
 
         print(
             "Output: ",

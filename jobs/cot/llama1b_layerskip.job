@@ -1,0 +1,51 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=16
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=6:00:00
+#SBATCH --job-name=llama1b_layerskip
+#SBATCH --output=job_logs/cot/llama1b_layerskip-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --use-early-exit \
+  --early-exit-method layerskip \
+  --layer-skip-dropout 0.1 \
+  --free-shallow-layers 0 6 \
+  --batch-size 1 \
+  --eval-batch-size 16 \
+  --seq-length 4096 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --finetune-mode full \
+  --experiment-name llama1b_layerskip \
+  --save-to-checkpoint llama1b_layerskip \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --pretrained \
+  --use-early-exit \
+  --early-exit-method layerskip \
+  --layer-skip-dropout 0.0 \
+  --free-shallow-layers 0 6 \
+  --eval-batch-size 128 \
+  --seq-length 4096 \
+  --finetune-mode full \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
+  --num-fewshot 0 \
+  --experiment-name llama1b_layerskip \
+  --load-from-checkpoint llama1b_layerskip \
+  --project-name gateskip

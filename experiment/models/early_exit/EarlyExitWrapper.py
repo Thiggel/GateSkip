@@ -64,7 +64,7 @@ class EarlyExitWrapper(nn.Module):
     def current_layer_skip_ratio(self) -> float:
         if self.config.early_exit_method == EarlyExitMethod.CALM:
             return self.calm_current_layer_skip_ratio()
-        elif self.config.early_exit_method == EarlyExitMethod.FREE:
+        elif self.config.early_exit_method in {EarlyExitMethod.FREE, EarlyExitMethod.LAYERSKIP}:
             return self.free_current_layer_skip_ratio()
         else:
             raise ValueError(
@@ -245,6 +245,24 @@ class EarlyExitWrapper(nn.Module):
             if self.layer_idx < self.free_shallow_last:
                 return torch.zeros_like(confidence, dtype=torch.bool)
             elif self.layer_idx > self.free_shallow_last:
+                self.percent_skipped = self.controller.exit_mask.float().mean().item()
+                return self.controller.exit_mask
+        elif self.config.early_exit_method == EarlyExitMethod.LAYERSKIP:
+            if self.layer_idx < self.free_shallow_last:
+                return torch.zeros_like(confidence, dtype=torch.bool)
+            elif self.layer_idx == self.free_shallow_last:
+                if self.controller.exit_mask is None:
+                    if self.training:
+                        self.controller.exit_mask = (
+                            torch.rand_like(confidence) < self.config.layer_skip_dropout
+                        )
+                    else:
+                        self.controller.exit_mask = torch.ones_like(confidence, dtype=torch.bool)
+                self.percent_skipped = self.controller.exit_mask.float().mean().item()
+                return self.controller.exit_mask
+            else:
+                if self.controller.exit_mask is None:
+                    self.controller.exit_mask = torch.ones_like(confidence, dtype=torch.bool)
                 self.percent_skipped = self.controller.exit_mask.float().mean().item()
                 return self.controller.exit_mask
 
