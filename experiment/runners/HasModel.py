@@ -17,7 +17,9 @@ class HasModelProtocol(Protocol):
 
 class HasModel:
     def _load_model(
-        self: HasModelProtocol, seed: int, mode: str = "train"
+        self: HasModelProtocol,
+        seed: int,
+        mode: str = "train",
     ) -> DefaultLightningModule:
         model = DefaultLightningModule(
             self.model_config,

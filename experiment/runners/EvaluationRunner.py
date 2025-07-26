@@ -172,7 +172,9 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         return (lo + hi) / 2
 
     def run(self, seed: int, state_dict: torch.Tensor = None) -> Dict[str, float]:
-        model = self._load_model(seed, mode="test").to(self.device)
+        model = self._load_model(seed, mode="test")
+        if torch.cuda.device_count() <= 1:
+            model = model.to(self.device)
         model.eval()
 
         if self.evaluation_config.use_quantization:
@@ -181,7 +183,8 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         if state_dict is not None:
             print("Loading state dict for evaluation")
             missing, unexpected = model.load_state_dict(state_dict)
-            model = model.to(self.device)
+            if torch.cuda.device_count() <= 1:
+                model = model.to(self.device)
             print(f"Missing keys: {missing}")
             print(f"Unexpected keys: {unexpected}")
 

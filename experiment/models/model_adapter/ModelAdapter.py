@@ -37,6 +37,12 @@ class ModelAdapter(HasLayers):
         self.tokenizer = tokenizer
         self.device = device
         self.seed = seed
+        if torch.cuda.device_count() > 1:
+            self.device_map = "auto"
+        elif torch.cuda.is_available():
+            self.device_map = {"": 0}
+        else:
+            self.device_map = None
 
         self.lora_config = LoraConfig(
             r=self.config.lora_r,
@@ -316,7 +322,9 @@ class ModelAdapter(HasLayers):
         """Initialize the model with appropriate configuration"""
         if self.config.pretrained:
             model = AutoModelForCausalLM.from_pretrained(
-                self.config.model_name, attn_implementation="eager"
+                self.config.model_name,
+                attn_implementation="eager",
+                device_map=self.device_map,
             )
         else:
             config = AutoConfig.from_pretrained(self.config.model_name)
@@ -344,7 +352,9 @@ class ModelAdapter(HasLayers):
 
         if self.config.use_kl_div_training:
             self.orig_model = AutoModelForCausalLM.from_pretrained(
-                self.config.model_name, attn_implementation="eager"
+                self.config.model_name,
+                attn_implementation="eager",
+                device_map=self.device_map,
             )
             self.orig_model.use_cache = False
             self.orig_model.train()
