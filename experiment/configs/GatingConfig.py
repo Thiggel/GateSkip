@@ -107,3 +107,11 @@ class GatingConfig:
     generation_mode: GenerationMode = Field(
         "greedy", description="Generation mode for gating"
     )
+    use_self_speculative_decoding: bool = Field(
+        False,
+        description="Whether to run self-speculative decoding for GateSkip",
+    )
+    self_speculative_budget: float = Field(
+        0.2,
+        description="Layer skip budget used during self-speculative decoding",
+    )

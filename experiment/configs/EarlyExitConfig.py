@@ -12,6 +12,7 @@ class ConfidenceMeasure(str, Enum):
 class EarlyExitMethod(str, Enum):
     CALM = "calm"
     FREE = "free"
+    LAYERSKIP = "layerskip"
 
 
 class EarlyExitConfig:
@@ -62,4 +63,8 @@ class EarlyExitConfig:
     )
     entropy_threshold: float = Field(
         1.0, description="Entropy threshold for entropy-based early exit"
+    )
+    layer_skip_dropout: float = Field(
+        0.1,
+        description="Random layer dropout probability for LayerSkip early exit",
     )
