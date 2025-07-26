@@ -80,7 +80,7 @@ def main():
     benchmarks = [
         bm
         for bm, val in data[first_key].items()
-        if isinstance(val, dict) and not (bm.startswith("mmlu") and bm != "mmlu_stem")
+        if isinstance(val, dict) 
     ]
 
     out_dir = args.json_file.with_suffix("").name

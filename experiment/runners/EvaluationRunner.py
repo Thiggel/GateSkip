@@ -226,6 +226,7 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
             self.tokenizer,
             self.evaluation_config.eval_batch_size,
             self.evaluation_config.num_fewshot,
+            self.data_config.seq_length,
         )
         metrics = self.evaluation_config.evaluation_metrics
         all_results = {}

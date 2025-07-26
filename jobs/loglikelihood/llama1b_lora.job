@@ -24,6 +24,7 @@ srun python -m experiment \
   --warmup-steps 1000 \
   --lr-decay-steps 6800 \
   --max-epochs 1 \
+  --max-hours 1 \
   --finetune-mode lora \
   --experiment-name llama1b_baseline_lora \
   --save-to-checkpoint llama1b_baseline_lora \
@@ -68,6 +69,7 @@ srun python -m experiment \
   --warmup-steps 1000 \
   --lr-decay-steps 6800 \
   --max-epochs 1 \
+  --max-hours 1 \
   --finetune-mode lora \
   --experiment-name llama1b_vector_individual_gate_lora \
   --save-to-checkpoint llama1b_vector_individual_gate_lora \

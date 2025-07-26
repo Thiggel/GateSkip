@@ -1,11 +1,11 @@
 #!/bin/bash
 
 #SBATCH --partition=gpu_h100
-#SBATCH --gpus=1
+#SBATCH --gpus=2
 #SBATCH --cpus-per-task=32
-#SBATCH --mem=368640
-#SBATCH --ntasks-per-node=1
-#SBATCH --time=4:00:00
+#SBATCH --mem=737280
+#SBATCH --ntasks-per-node=2
+#SBATCH --time=24:00:00
 #SBATCH --job-name=llama8b_baseline
 #SBATCH --output=job_logs/cot/llama8b_baseline-%A.out
 
@@ -24,10 +24,12 @@ srun python -m experiment \
   --warmup-steps 1000 \
   --lr-decay-steps 6800 \
   --max-epochs 1 \
+  --max-hours 8 \
   --finetune-mode full \
   --experiment-name llama8b_baseline \
   --save-to-checkpoint llama8b_baseline \
   --project-name gateskip \
+  --use-deepspeed \
   --enable-logging
  
 srun python -m experiment \

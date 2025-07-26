@@ -26,12 +26,14 @@ class ModelAdapter(HasLayers):
         self,
         config: ModelConfig,
         evaluation_config: EvaluationConfig,
+        training_config: ModelConfig,
         tokenizer: PreTrainedTokenizer,
         device: torch.device,
         seed: int,
     ):
         self.config = config
         self.evaluation_config = evaluation_config
+        self.training_config = training_config
         self.tokenizer = tokenizer
         self.device = device
         self.seed = seed
@@ -322,6 +324,10 @@ class ModelAdapter(HasLayers):
             model = AutoModelForCausalLM.from_config(
                 config, attn_implementation="eager"
             )
+
+        if self.training_config.use_gradient_checkpointing:
+            print("Enabling Gradient Checkpointing")
+            model.gradient_checkpointing_enable()
 
         model.use_cache = False
         model.train()

@@ -39,17 +39,23 @@ class DefaultLightningModule(LightningModule, HasLayers):
         self.model_adapter = ModelAdapter(
             self.config,
             self.evaluation_config,
+            self.training_config,
             self.tokenizer,
             self.device,
             seed,
         )
         self.model = self.model_adapter.model
-        self.old_forward = self.model.forward
-        self.model.forward = self.forward
+        target = self.model
+# walk through nested wrappers to reach the actual base model
+        if hasattr(target, "base_model") and self.config.finetune_mode != FinetuneMode.FULL:
+            target = target.base_model
+        if hasattr(target, "model") and self.config.finetune_mode != FinetuneMode.FULL:
+            target = target.model  # e.g., LlamaForCausalLM
+        self.old_forward = target.forward
+        target.forward = self.forward  # patch deepest model
 
-        if hasattr(self.model, "base_model"):
-            self.old_forward = self.model.base_model.forward
-            self.model.base_model.forward = self.forward
+# keep reference on outer model for direct calls if needed
+        self.model.forward = target.forward
 
         self.percent_tokens_skipped = []
 

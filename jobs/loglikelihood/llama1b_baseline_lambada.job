@@ -4,9 +4,9 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=4:00:00
-#SBATCH --job-name=llama1b_baseline_mmlu_gen
-#SBATCH --output=job_logs/cot/llama1b_baseline_mmlu_gen-%A.out
+#SBATCH --time=16:00:00
+#SBATCH --job-name=llama1b_baseline_lambada
+#SBATCH --output=job_logs/loglikelihood/llama1b_baseline_lambada-%A.out
 
 cd $HOME/GateSkip
 
@@ -24,8 +24,8 @@ srun python -m experiment \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
-  --evaluation-metrics mmlu_gen,piqa_gen \
+  --evaluation-metrics lambada \
   --num-fewshot 0 \
-  --experiment-name llama1b_baseline_mmlu \
+  --experiment-name llama1b_baseline_lambada \
   --load-from-checkpoint llama1b_baseline \
   --project-name gateskip

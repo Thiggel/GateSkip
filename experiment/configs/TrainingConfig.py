@@ -14,6 +14,9 @@ class TrainingConfig(BaseModel):
     use_deepspeed: bool = Field(
         False, description="Whether to use DeepSpeed for training"
     )
+    use_gradient_checkpointing: bool = Field(
+        False, description="Whether to use gradient checkpointing"
+    )
     max_epochs: Optional[int] = Field(None, description="The maximum number of epochs")
     max_training_steps: Optional[int] = Field(
         None, description="The maximum number of epochs"

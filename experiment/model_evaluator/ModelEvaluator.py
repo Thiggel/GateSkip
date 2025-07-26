@@ -20,9 +20,11 @@ class ModelEvaluator:
         tokenizer: PreTrainedTokenizer,
         eval_batch_size: int = 128,
         num_fewshot: int = 0,
+        max_length: int = 1024,
     ):
         self.eval_batch_size = eval_batch_size
         self.num_fewshot = num_fewshot
+        self.max_length = max_length
 
         self.model = model
 
