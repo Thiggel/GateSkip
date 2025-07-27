@@ -50,6 +50,18 @@ def extract_metric_series(
     return np.array(acc_list), np.array(stderr_list)
 
 
+def extract_perplexity_series(
+    data: dict, compute: np.ndarray, benchmark: str, metric_key: str = "perplexity,none"
+) -> np.ndarray:
+    """Extract perplexity values for a given benchmark across thresholds."""
+    ppl_list = []
+    for comp_frac in sorted(data.keys(), key=lambda k: float(k)):
+        entry = data[comp_frac].get(benchmark, {})
+        ppl = entry.get(metric_key, np.nan)
+        ppl_list.append(ppl)
+    return np.array(ppl_list)
+
+
 def compute_saved_at_retained(
     acc: np.ndarray, compute: np.ndarray, target_ratio: float = 0.90
 ) -> float:
@@ -118,6 +130,11 @@ def main():
     for bm in benchmarks:
         acc, stderr = extract_metric_series(data, compute, bm)
         raw[bm] = [f"{a*100:.2f}\u00B1{s*100:.2f}" for a, s in zip(acc, stderr)]
+        ppl = extract_perplexity_series(data, compute, bm)
+        if not np.isnan(ppl).all():
+            ppl_values = [f"{p:.2f}" for p in ppl]
+            insert_idx = raw.columns.get_loc(bm) + 1
+            raw.insert(insert_idx, f"{bm} Perplexity", ppl_values)
     # sort rows by numeric compute-saved
     order = np.argsort(compute)
     raw = raw.iloc[order]
