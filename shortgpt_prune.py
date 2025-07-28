@@ -1,10 +1,19 @@
 import argparse
+import sys
 from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
+from experiment.cli_manager import CLIManager
+from experiment.configs import (
+    ModelConfig,
+    TrainingConfig,
+    DataConfig,
+    EvaluationConfig,
+)
+from experiment.models.model_adapter.ModelAdapter import ModelAdapter
 from experiment.models.pruning.shortgpt import compute_block_influence, prune_layers
 
 
@@ -14,7 +23,7 @@ def load_texts(path: Path) -> list[str]:
     return texts
 
 
-def build_dataloader(texts: list[str], tokenizer, seq_len: int, batch_size: int, device: torch.device) -> DataLoader:
+def build_dataloader(texts: list[str], tokenizer, seq_len: int, batch_size: int) -> DataLoader:
     enc = tokenizer(
         texts,
         return_tensors="pt",
@@ -39,12 +48,30 @@ def main():
         type=Path,
         help="Optional path to a .pt checkpoint with model weights",
     )
-    args = parser.parse_args()
+    args, remaining = parser.parse_known_args()
+
+    # Parse additional model hyperparameters using the same CLI as the main experiment
+    sys.argv = [sys.argv[0]] + remaining
+    cli = CLIManager(ModelConfig, TrainingConfig, DataConfig, EvaluationConfig)
+    cli.parse_args()
+    configs = cli.get_all_configs()
+    model_config = configs[ModelConfig.__name__]
+    training_config = configs[TrainingConfig.__name__]
+    data_config = configs[DataConfig.__name__]
+    evaluation_config = configs[EvaluationConfig.__name__]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
-    model = AutoModelForCausalLM.from_pretrained(args.model)
+    adapter = ModelAdapter(
+        model_config,
+        evaluation_config,
+        training_config,
+        tokenizer,
+        device,
+        seed=42,
+    )
+    model = adapter.model
 
     if args.checkpoint is not None:
         checkpoint = torch.load(args.checkpoint, map_location="cpu")
@@ -63,7 +90,7 @@ def main():
     model = model.to(device)
 
     texts = load_texts(Path(args.dataset))
-    dataloader = build_dataloader(texts, tokenizer, args.seq_len, args.batch_size, device)
+    dataloader = build_dataloader(texts, tokenizer, args.seq_len, args.batch_size)
 
     bi_scores = compute_block_influence(model, dataloader, device)
     num_layers = len(bi_scores)

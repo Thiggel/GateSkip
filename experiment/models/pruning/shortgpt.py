@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from transformers import PreTrainedModel
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from ..HasLayers import HasLayers
 
