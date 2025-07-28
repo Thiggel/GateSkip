@@ -165,6 +165,11 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         results = self._log_percent_tokens_skipped_per_layer(model, results)
         return results
 
+    def _get_dynamic_batch_size(self, budget: float) -> int:
+        base = self.evaluation_config.eval_batch_size
+        compute_fraction = max(1.0 - budget, 0.01)
+        return max(1, int(base / compute_fraction))
+
     def p_for_saved_fraction(self, A, N, tol=1e-8):
         lo, hi = 0.0, 1.0          #  p ∈ (0,1)
         while hi - lo > tol:
@@ -229,13 +234,7 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         # )
         # print("Sample generation: ", self.tokenizer.decode(generated[0]))
 
-        evaluator_full = ModelEvaluator(
-            model,
-            self.tokenizer,
-            self.evaluation_config.eval_batch_size,
-            self.evaluation_config.num_fewshot,
-            self.data_config.seq_length,
-        )
+        base_batch_size = self.evaluation_config.eval_batch_size
         metrics = self.evaluation_config.evaluation_metrics
         all_results = {}
 
@@ -256,6 +255,19 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
                 self.model_config.desired_skip_ratio = 2 * pct
             else:
                 self.model_config.desired_skip_ratio = pct
+
+            if self.evaluation_config.auto_adjust_batch_size:
+                eval_bs = self._get_dynamic_batch_size(pct)
+            else:
+                eval_bs = base_batch_size
+
+            evaluator_full = ModelEvaluator(
+                model,
+                self.tokenizer,
+                eval_bs,
+                self.evaluation_config.num_fewshot,
+                self.data_config.seq_length,
+            )
 
             # the threshold field is irrelevant when random skipping is active
             results = self._single_eval(evaluator_full, metrics, seed, model)

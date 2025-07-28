@@ -22,6 +22,7 @@ srun python -m experiment \
   --randomly-skip \
   --no-actually-gate \
   --eval-batch-size 128 \
+  --auto-adjust-batch-size \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
@@ -38,6 +39,7 @@ srun python -m experiment \
   --use-gating \
   --skip-modules \
   --eval-batch-size 128 \
+  --auto-adjust-batch-size \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
