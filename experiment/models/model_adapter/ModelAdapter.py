@@ -6,6 +6,7 @@ from transformers import (
     AutoConfig,
     PreTrainedTokenizer,
 )
+from pathlib import Path
 import math
 import torch
 from torch import nn
@@ -321,11 +322,20 @@ class ModelAdapter(HasLayers):
     def _initialize_model(self) -> PreTrainedModel:
         """Initialize the model with appropriate configuration"""
         if self.config.pretrained:
-            model = AutoModelForCausalLM.from_pretrained(
-                self.config.model_name,
-                attn_implementation="eager",
-                device_map=self.device_map,
-            )
+            model_path = Path(self.config.model_name)
+            if model_path.is_dir() and (model_path / "pytorch_model.bin").exists():
+                config = AutoConfig.from_pretrained(model_path)
+                model = AutoModelForCausalLM.from_config(
+                    config, attn_implementation="eager", device_map=self.device_map
+                )
+                load_from_local = True
+            else:
+                model = AutoModelForCausalLM.from_pretrained(
+                    self.config.model_name,
+                    attn_implementation="eager",
+                    device_map=self.device_map,
+                )
+                load_from_local = False
         else:
             config = AutoConfig.from_pretrained(self.config.model_name)
             config.vocab_size = self.tokenizer.vocab_size
@@ -363,6 +373,13 @@ class ModelAdapter(HasLayers):
 
         # Add gating or MoD if needed
         model = self._wrap_with_adaptive_compute(model)
+
+        if self.config.pretrained and load_from_local:
+            state_path = model_path / "pytorch_model.bin"
+            state_dict = torch.load(state_path, map_location="cpu")
+            missing, unexpected = model.load_state_dict(state_dict, strict=False)
+            print("Missing keys:", missing)
+            print("Unexpected keys:", unexpected)
 
         # Apply LoRA if needed
         if self.config.finetune_mode == FinetuneMode.LORA:
