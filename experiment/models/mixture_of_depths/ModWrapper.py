@@ -86,21 +86,25 @@ class ModWrapper(nn.Module):
             threshold = self.threshold_finder.find_threshold(importance, self.config.desired_skip_ratio)
             selection_mask = (importance > threshold).unsqueeze(-1)
 
-            # Process through module
+            if not selection_mask.any():
+                self.current_percent_tokens_processed = 0.0
+                self.past_percent_processed.append(0.0)
+                if "past_key_value" in kwargs and kwargs["past_key_value"] is not None:
+                    return (hidden_states, kwargs["past_key_value"])
+                return hidden_states
+
             output = self.module(
                 hidden_states,
                 *args,
                 **kwargs,
             )
 
-            # Track statistics
             self.current_percent_tokens_processed = selection_mask.float().mean().item()
             self.past_percent_processed.append(self.current_percent_tokens_processed)
 
             if isinstance(output, tuple):
                 processed_states = output[0]
                 other_outputs = output[1:]
-                # Apply selection mask
                 final_states = torch.where(
                     selection_mask, processed_states, hidden_states
                 )

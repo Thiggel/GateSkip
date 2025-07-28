@@ -323,21 +323,6 @@ class EarlyExitWrapper(nn.Module):
             self.controller.prev_predictions = None
             self.controller.patience_counters = None
 
-        # Just pass through to the wrapped module
-        outputs = self.module(hidden_states, *args, **kwargs)
-
-        if isinstance(outputs, tuple):
-            main_output = outputs[0]
-        else:
-            main_output = outputs
-
-        if self.controller.exit_mask is not None and self.controller.prev_hidden_states is not None:
-            main_output = torch.where(
-                self.controller.exit_mask.unsqueeze(-1).repeat(1, 1, self.controller.prev_hidden_states.shape[-1]),
-                self.controller.prev_hidden_states,
-                main_output,
-            )
-
         logits = None
         if self.config.confidence_measure in {
             ConfidenceMeasure.SOFTMAX,
@@ -351,16 +336,20 @@ class EarlyExitWrapper(nn.Module):
                 if output_embeddings is None:
                     output_embeddings = getattr(self.parent, "output_projection", None)
             if output_embeddings is not None:
-                logits = output_embeddings(main_output)
+                logits = output_embeddings(hidden_states)
 
-        # Compute confidence
-        self.current_confidence = self.compute_confidence(main_output, prev_hidden, logits)
+        self.current_confidence = self.compute_confidence(hidden_states, prev_hidden, logits)
 
-
-        self.controller.prev_hidden_states = main_output
-
-        # Determine exit decision - for tracking purposes
         self.current_exit_decision = self.should_exit(self.current_confidence, step_idx, logits)
+
+        self.controller.prev_hidden_states = hidden_states
+
+        if self.current_exit_decision.all():
+            if "past_key_value" in kwargs and kwargs["past_key_value"] is not None:
+                return (hidden_states, kwargs["past_key_value"])
+            return hidden_states
+
+        outputs = self.module(hidden_states, *args, **kwargs)
 
         return outputs
 

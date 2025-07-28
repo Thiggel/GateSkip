@@ -228,6 +228,15 @@ class GatedWrapper(nn.Module):
 
         self.calculate_skipping_statistics(skip_mask)
 
+        if skip_mask.all():
+            updated_kv_cache = kwargs.get("past_key_value")
+            zero_output = torch.zeros_like(hidden_states)
+            if self.config.actually_gate:
+                zero_output = gate_value * zero_output
+            if updated_kv_cache is not None:
+                return (zero_output, updated_kv_cache)
+            return zero_output
+
         module_output = self.module(hidden_states, *args, **kwargs)
         main_output = (
             module_output[0] if isinstance(module_output, tuple) else module_output

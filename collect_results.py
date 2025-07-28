@@ -12,18 +12,23 @@ pio.mathjax = ""
 
 
 def load_data(json_path: Path):
-    """Load JSON experiment data, extract actual compute-saved percentages, and clean raw data."""
+    """Load JSON experiment data and separate compute and runtime metrics."""
     with open(json_path, "r") as f:
         data = json.load(f)
 
     comp_keys = sorted(data.keys(), key=lambda k: float(k))
     compute = []
+    latency = []
+    throughput = []
     for k in comp_keys:
-        pct = data[k].pop("percent_tokens_skipped", None)
+        entry = data[k]
+        pct = entry.pop("percent_tokens_skipped", None)
         if pct is None:
             pct = float(k)
         compute.append(pct * 100)
-    return data, np.array(compute)
+        latency.append(entry.pop("latency_seconds", None))
+        throughput.append(entry.pop("throughput_tokens_per_second", None))
+    return data, np.array(compute), np.array(latency), np.array(throughput)
 
 
 def extract_metric_series(
@@ -87,7 +92,7 @@ def main():
     )
     args = parser.parse_args()
 
-    data, compute = load_data(args.json_file)
+    data, compute, latency, throughput = load_data(args.json_file)
     first_key = sorted(data.keys(), key=lambda k: float(k))[0]
     benchmarks = [
         bm
@@ -141,6 +146,18 @@ def main():
     raw.to_csv(Path(out_dir) / "raw_results.csv")
     print("\n=== Raw Results (sorted) ===")
     print(raw)
+
+    latency_df = pd.DataFrame(
+        {
+            "Latency (s)": latency[order],
+            "Throughput (tok/s)": throughput[order],
+        },
+        index=[f"{c:.2f}%" for c in compute[order]],
+    )
+    latency_df.index.name = "Compute Saved (%)"
+    latency_df.to_csv(Path(out_dir) / "latency_throughput.csv")
+    print("\n=== Latency & Throughput ===")
+    print(latency_df)
 
     # ——————————————————————————————————————————————————————————
     # 4) Interpolated accuracies + average across benchmarks

@@ -5,6 +5,7 @@ import wandb
 import torch
 from torch import nn
 from scipy import stats
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.special import lambertw
@@ -148,7 +149,7 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         }
 
     def _single_eval(self, evaluator_full, metrics, seed, model):
-        #with suppress_all_output():
+        start = time.perf_counter()
         results = evaluator_full.evaluate(
            metrics=metrics,
            seed=seed,
@@ -156,6 +157,10 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
            generation_mode=self.model_config.generation_mode,
            limit=self.evaluation_config.limit,
         )
+        latency = time.perf_counter() - start
+        tokens = self.evaluation_config.limit * self.data_config.seq_length
+        results["latency_seconds"] = latency
+        results["throughput_tokens_per_second"] = tokens / latency if latency > 0 else 0.0
         results = self._log_percent_tokens_skipped(model, results)
         results = self._log_percent_tokens_skipped_per_layer(model, results)
         return results
