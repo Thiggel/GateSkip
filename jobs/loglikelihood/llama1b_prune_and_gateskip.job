@@ -14,7 +14,8 @@ cd $HOME/GateSkip
 
 PRUNED_DIR=$HOME/pruned_llama1b_shortgpt
 CALIB_TEXT=$HOME/calibration_text.txt
-CHECKPOINT=$HOME/my_finetuned.ckpt
+# Use the checkpoint produced by the vector gate experiment
+CHECKPOINT=$BASE_CACHE_DIR/llama1b_vector_individual_gate_1.pt
 
 python shortgpt_prune.py "meta-llama/Llama-3.2-1B" "$CALIB_TEXT" "$PRUNED_DIR" \
   --seq_len 512 --batch_size 1 --prune_ratio 0.25 \
