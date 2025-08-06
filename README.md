@@ -82,6 +82,7 @@ Below is a mapping from high‑level experiments to the .job files in jobs/:
 * **Mixture‑of‑Depths:** llama1b_mod.job
 * **GateSkip Variants (Llama‑1B):** scalar, vector, before‑gate, MLP, shared (same names as above)
 * **Scalability Ablations:** Gemma‑2, Llama‑3B, Llama‑8B (same names as above)
+* **ShortGPT Pruning + GateSkip:** llama1b_prune_and_gateskip.job
 
 ## Getting Started
 
