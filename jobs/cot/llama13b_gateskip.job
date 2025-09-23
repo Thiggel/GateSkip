@@ -1,0 +1,56 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=2
+#SBATCH --cpus-per-task=16
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=12:00:00
+#SBATCH --job-name=llama13b_gateskip
+#SBATCH --output=job_logs/cot/llama13b_gateskip-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+srun python -m experiment \
+  --model-name "TroyDoesAI/Llama-3.1-13B-Instruct" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --use-gating \
+  --entropy-loss-weight 0.0 \
+  --sparsity-loss-weight 1.0 \
+  --skip-modules \
+  --increasing-threshold \
+  --start-thr-percentile 0.0 \
+  --end-thr-percentile 0.2 \
+  --num-increasing-steps 6800 \
+  --batch-size 1 \
+  --eval-batch-size 1 \
+  --seq-length 4096 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --max-hours 8 \
+  --finetune-mode full \
+  --experiment-name llama13b_gateskip \
+  --save-to-checkpoint llama13b_gateskip \
+  --project-name gateskip \
+  --use-deepspeed \
+  --use-gradient-checkpointing \
+  --enable-logging
+ 
+#srun python -m experiment \
+#  --model-name "TroyDoesAI/Llama-3.1-13B-Instruct" \
+#  --pretrained \
+#  --use-gating \
+#  --skip-modules \
+#  --eval-batch-size 1 \
+#  --seq-length 4096 \
+#  --finetune-mode full \
+#  --mode evaluate \
+#  --evaluation-metrics csqa_gen,gsm8k \
+#  --num-fewshot 0 \
+#  --experiment-name llama13b_gateskip \
+#  --load-from-checkpoint llama13b_gateskip \
+#  --project-name gateskip

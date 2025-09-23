@@ -1,0 +1,46 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=4
+#SBATCH --cpus-per-task=16
+#SBATCH --ntasks-per-node=4
+#SBATCH --time=24:00:00
+#SBATCH --job-name=llama70b_baseline
+#SBATCH --output=job_logs/cot/llama70b_baseline-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-70B" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --batch-size 1 \
+  --eval-batch-size 1 \
+  --seq-length 4096 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --max-hours 8 \
+  --finetune-mode full \
+  --experiment-name llama70b_baseline \
+  --save-to-checkpoint llama70b_baseline \
+  --project-name gateskip \
+  --use-deepspeed \
+  --use-gradient-checkpointing \
+  --enable-logging
+ 
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-70B" \
+  --pretrained \
+  --eval-batch-size 1 \
+  --seq-length 4096 \
+  --finetune-mode full \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,piqa_gen \
+  --num-fewshot 0 \
+  --experiment-name llama70b_baseline \
+  --load-from-checkpoint llama70b_baseline \
+  --project-name gateskip

@@ -14,12 +14,34 @@ cd $HOME/GateSkip
 
 srun python -m experiment \
   --model-name "meta-llama/Llama-3.2-1B" \
+  --dataset fineweb \
   --pretrained \
   --use-early-exit \
   --early-exit-method layerskip \
   --layer-skip-dropout 0.1 \
   --free-shallow-layers 0 6 \
-  --eval-batch-size 128 \
+  --batch-size 1 \
+  --eval-batch-size 16 \
+  --seq-length 512 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --max-hours 1 \
+  --finetune-mode full \
+  --experiment-name llama1b_layerskip_loglikelihood \
+  --save-to-checkpoint llama1b_layerskip_loglikelihood \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-1B" \
+  --pretrained \
+  --use-early-exit \
+  --early-exit-method layerskip \
+  --layer-skip-dropout 0.1 \
+  --free-shallow-layers 0 6 \
+  --eval-batch-size 16 \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \

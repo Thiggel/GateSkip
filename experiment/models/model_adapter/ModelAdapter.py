@@ -324,7 +324,7 @@ class ModelAdapter(HasLayers):
             model = AutoModelForCausalLM.from_pretrained(
                 self.config.model_name,
                 attn_implementation="eager",
-                device_map=self.device_map,
+                #device_map=self.device_map,
             )
         else:
             config = AutoConfig.from_pretrained(self.config.model_name)

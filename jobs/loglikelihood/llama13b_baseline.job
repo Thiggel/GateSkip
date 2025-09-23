@@ -5,15 +5,15 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=12:00:00
-#SBATCH --job-name=llama8b_baseline
-#SBATCH --output=job_logs/loglikelihood/llama8b_baseline-%A.out
+#SBATCH --job-name=llama13b_baseline
+#SBATCH --output=job_logs/loglikelihood/llama13b_baseline-%A.out
 
 cd $HOME/GateSkip
 
 . jobs/environment.sh
 
 srun python -m experiment \
-  --model-name "meta-llama/Llama-3.1-8B" \
+  --model-name "TroyDoesAI/Llama-3.1-13B-Instruct" \
   --dataset fineweb \
   --pretrained \
   --batch-size 1 \
@@ -25,21 +25,21 @@ srun python -m experiment \
   --max-epochs 1 \
   --finetune-mode full \
   --max-hours 4 \
-  --experiment-name llama8b_baseline \
-  --save-to-checkpoint llama8b_baseline \
+  --experiment-name llama13b_baseline \
+  --save-to-checkpoint llama13b_baseline \
   --project-name gateskip \
   --use-deepspeed \
   --enable-logging
  
 srun python -m experiment \
-  --model-name "meta-llama/Llama-3.1-8B" \
+  --model-name "TroyDoesAI/Llama-3.1-13B-Instruct" \
   --pretrained \
-  --eval-batch-size 32 \
+  --eval-batch-size 1 \
   --seq-length 4096 \
   --finetune-mode full \
   --mode evaluate \
-  --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
+  --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa \
   --num-fewshot 0 \
-  --experiment-name llama8b_baseline_loglik \
-  --load-from-checkpoint llama8b_baseline \
+  --experiment-name llama13b_baseline_loglik \
+  --load-from-checkpoint llama13b_baseline \
   --project-name gateskip

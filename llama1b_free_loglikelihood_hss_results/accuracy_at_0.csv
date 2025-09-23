@@ -1,8 +1,0 @@
-Benchmark,Accuracy @0%
-commonsense_qa,19.0
-hellaswag,42.0
-mmlu_stem,21.28
-openbookqa,21.0
-piqa,70.0
-squadv2,
-winogrande,58.5
