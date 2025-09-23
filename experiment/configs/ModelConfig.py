@@ -29,3 +29,7 @@ class ModelConfig(BaseModel, LoraConfig, GatingConfig, MoDConfig, EarlyExitConfi
     remove_layers: Optional[Annotated[str, LayerRange]] = Field(
         None, description="The layers to remove from the model"
     )
+    trainable_layers: Optional[Annotated[str, LayerRange]] = Field(
+        None,
+        description="Layers to keep trainable when the backbone is otherwise frozen",
+    )
