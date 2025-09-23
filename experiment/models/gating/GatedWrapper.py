@@ -238,7 +238,7 @@ class GatedWrapper(nn.Module):
                 module_output, kwargs.get("past_key_value"), skip_mask
             )
         except Exception as e:
-            print(f"Error in updating kv cache: {e}")
+            #print(f"Error in updating kv cache: {e}")
             updated_kv_cache = None
 
         if updated_kv_cache is not None:

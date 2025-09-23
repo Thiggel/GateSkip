@@ -9,12 +9,12 @@ from typing import Optional
 
 from experiment.configs import ModelConfig, TrainingConfig, DataConfig, EvaluationConfig
 from experiment.configs.ModelConfig import FinetuneMode
+from experiment.configs.EarlyExitConfig import EarlyExitMethod
 
 from .model_adapter import ModelAdapter
 from .MetricsLogger import MetricsLogger
 from .HasLayers import HasLayers
 from .gating.GatingStatsCollector import GatingStatsCollector
-
 
 
 class DefaultLightningModule(LightningModule, HasLayers):
@@ -46,7 +46,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
         )
         self.model = self.model_adapter.model
         target = self.model
-
+        
         if self.config.finetune_mode != FinetuneMode.FULL:
             # unwrap PEFT/adapter shells but keep the causal LM head so the
             # original loss computation remains available
@@ -70,7 +70,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
                 if next_target is None or next_target is target:
                     break
                 target = next_target
-
+                
         self.old_forward = target.forward
         target.forward = self.forward  # patch module we're wrapping
 
@@ -170,7 +170,10 @@ class DefaultLightningModule(LightningModule, HasLayers):
 
         self.metrics_logger.dump_first_batch(kwargs)
 
-        if self.config.use_early_exit and self.config.early_exit_method == EarlyExitMethod.LAYERSKIP:
+        if (
+            self.config.use_early_exit
+            and self.config.early_exit_method == EarlyExitMethod.LAYERSKIP
+        ):
             draft = self.model.generate(*args, **kwargs)
             original_method = self.config.early_exit_method
             original_ratio = self.config.desired_skip_ratio
@@ -222,19 +225,20 @@ class DefaultLightningModule(LightningModule, HasLayers):
         return output
 
     def sample_generate(self):
-        string = self.tokenizer.encode(
-            "My dog is ",
-            return_tensors="pt",
-        ).to(self.device)
+        pass
+        # string = self.tokenizer.encode(
+        #    "My dog is ",
+        #    return_tensors="pt",
+        # ).to(self.device)
 
-        generated = self.generate(
-            input_ids=string,
-            max_length=100,
-            max_new_tokens=100,
-            eos_token_id=self.tokenizer.eos_token_id,
-        )
+        # generated = self.generate(
+        #    input_ids=string,
+        #    max_length=100,
+        #    max_new_tokens=100,
+        #    eos_token_id=self.tokenizer.eos_token_id,
+        # )
 
-        print("Sample generation: ", self.tokenizer.decode(generated[0]))
+        # print("Sample generation: ", self.tokenizer.decode(generated[0]))
 
     def on_validation_start(self):
         self.sample_generate()

@@ -236,7 +236,7 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
 
         # percentages: 0.05, 0.10, …, 1.00
         for pct in tqdm(
-            [0.25, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
+            [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6],
             desc="running full eval",
             leave=False,
         ):
@@ -270,14 +270,30 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
                 )
                 model.gating_stats_collector.reset_token_stats()
 
-        # Save the results to a file
-        results_path = os.path.join(os.environ.get("BASE_CACHE_DIR"), "results")
-        os.makedirs(results_path, exist_ok=True)
-        results_file = self.experiment_config.experiment_name + "_results.json"
-        with open(os.path.join(results_path, results_file), "w") as f:
-            json.dump(all_results, f)
+            # Save the results to a file
+            results_path = os.path.join(os.environ.get("BASE_CACHE_DIR"), "results")
+            os.makedirs(results_path, exist_ok=True)
+            results_file = self.experiment_config.experiment_name + "_results.json"
+            full_path = os.path.join(results_path, results_file)
+            with open(full_path, "w") as f:
+                json.dump(all_results, f)
 
             if self.experiment_config.enable_logging:
                 self._log_results(model, results, seed)
+
+                # Upload results JSON as W&B artifact
+                run = wandb.run if wandb.run else wandb.init(
+                    project=self.experiment_config.project_name,
+                    name=f"{self.experiment_config.experiment_name}_{seed}",
+                    group=self.experiment_config.experiment_name,
+                )
+
+                artifact = wandb.Artifact(
+                    name=f"{self.experiment_config.experiment_name}_results",
+                    type="evaluation_results"
+                )
+                artifact.add_file(full_path)
+                run.log_artifact(artifact)
+                wandb.finish()
 
         return {}

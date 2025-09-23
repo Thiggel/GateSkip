@@ -92,8 +92,9 @@ def main():
     benchmarks = [
         bm
         for bm, val in data[first_key].items()
-        if isinstance(val, dict) 
+        if isinstance(val, dict) if not (bm.startswith("mmlu_") and bm not in ["mmlu_stem", "mmlu_gen"])
     ]
+
 
     out_dir = args.json_file.with_suffix("").name
     Path(out_dir).mkdir(exist_ok=True)
@@ -154,6 +155,13 @@ def main():
         interp_acc = np.interp(targets, compute, acc_pct)
         interp_dict[bm] = interp_acc
 
+        # add the "Perplexity" column if it exists
+        ppl = extract_perplexity_series(data, compute, bm)
+        if not np.isnan(ppl).all():
+            interp_dict[f"{bm} PPL"] = np.interp(targets, compute, ppl)
+
+
+
     # build DataFrame (rows are the target compute‐saved %, cols are benchmarks)
     df_interp = pd.DataFrame(
         interp_dict,
@@ -162,7 +170,9 @@ def main():
     df_interp.index.name = "Compute Saved (%)"
 
     # add the “Average” column
-    df_interp["Average"] = df_interp.mean(axis=1)
+    df_interp["Average"] = df_interp.filter(regex='^(?!.*PPL)').mean(axis=1)
+
+    df_interp["PPL Average"] = df_interp.filter(like="PPL").mean(axis=1)
 
     # write out and display
     df_interp.to_csv(Path(out_dir) / "interpolated_accuracies.csv")

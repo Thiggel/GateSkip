@@ -10,6 +10,7 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.strategies import DeepSpeedStrategy
+from deepspeed.runtime.fp16.loss_scaler import LossScaler
 from pytorch_lightning.utilities.deepspeed import (
     convert_zero_checkpoint_to_fp32_state_dict,
 )
@@ -190,7 +191,7 @@ class TrainRunner(Runner, HasTokenizer, HasModel):
                 * self.data_config.grad_acc_steps
                 * torch.cuda.device_count(),
                 "zero_optimization": {
-                    "stage": 2,
+                    "stage": 3,
                     "offload_optimizer": {"device": "cpu", "pin_memory": True},
                     "overlap_comm": True,
                     #"allgather_bucket_size": 5e8,
@@ -198,7 +199,7 @@ class TrainRunner(Runner, HasTokenizer, HasModel):
                     "contiguous_gradients": True,
                 },
                 "gradient_clipping": self.training_config.max_grad_norm,
-                "bf16": {"enabled": False},
+                "bf16": {"enabled": True},
                 "wall_clock_breakdown": False,
                 "zero_allow_untested_optimizer": True,
                 "fp16": {
@@ -228,6 +229,7 @@ class TrainRunner(Runner, HasTokenizer, HasModel):
         args = {
             "accelerator": "gpu",
             "default_root_dir": os.environ["PYTORCH_LIGHTNING_HOME"] + "/../",
+            "precision": "bf16"
         }
 
         args["strategy"] = strategy
@@ -245,6 +247,7 @@ class TrainRunner(Runner, HasTokenizer, HasModel):
         print(f"\n\nSaving checkpoint to {output_path}\n\n")
 
         if self.training_config.use_deepspeed:
+            torch.serialization.add_safe_globals([LossScaler])
             convert_zero_checkpoint_to_fp32_state_dict(checkpoint_path, output_path)
 
         else:
