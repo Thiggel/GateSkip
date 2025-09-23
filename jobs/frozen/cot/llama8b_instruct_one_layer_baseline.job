@@ -39,7 +39,7 @@ srun python -m experiment \
   --finetune-mode frozen \
   --trainable-layers -1 \
   --mode evaluate \
-  --evaluation-metrics csqa_gen,gsm8k,piqa_gen,mmlu_gen \
+  --evaluation-metrics csqa_gen,gsm8k \
   --num-fewshot 0 \
   --experiment-name llama8b_instruct_one_layer_baseline \
   --load-from-checkpoint llama8b_instruct_one_layer_baseline \
