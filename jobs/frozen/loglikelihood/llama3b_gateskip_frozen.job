@@ -26,3 +26,4 @@ srun python -m experiment \
   --experiment-name llama3b_gateskip_frozen \
   --load-from-checkpoint llama3b_gateskip_frozen \
   --project-name gateskip
+

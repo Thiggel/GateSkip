@@ -291,13 +291,6 @@ class ModelEarlyExit(nn.Module):
                     exit_layer = self.exit_decisions[key]
                     kv_key = (exit_layer, batch_idx, token_idx)
 
-                    # If we have stored KV states for this token at its exit layer,
-                    # propagate them to the current layer
-                    if kv_key in self.exit_key_values:
-                        if self.config.use_free_speculative_decoding:
-                            # Copy the stored KV states to current layer (speculative decoding)
-                            key_value_states = self.exit_key_values[kv_key]
-
         return key_value_states
 
     def compute_early_exit_statistics(self) -> Dict[str, float]:

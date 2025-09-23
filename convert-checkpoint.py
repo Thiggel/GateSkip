@@ -34,7 +34,7 @@ def convert_deepspeed_to_pytorch(deepspeed_checkpoint_dir, output_path):
             f"Converting DeepSpeed checkpoint from directory: {deepspeed_checkpoint_dir}"
         )
         state_dict = convert_zero_checkpoint_to_fp32_state_dict(
-            deepspeed_checkpoint_dir, temp_dir
+            deepspeed_checkpoint_dir, temp_dir,
         )
         # Load all parts if multiple files were created
         if os.path.isfile(os.path.join(temp_dir, "pytorch_model.bin")):

@@ -9,12 +9,12 @@ from typing import Optional
 
 from experiment.configs import ModelConfig, TrainingConfig, DataConfig, EvaluationConfig
 from experiment.configs.ModelConfig import FinetuneMode
+from experiment.configs.EarlyExitConfig import EarlyExitMethod
 
 from .model_adapter import ModelAdapter
 from .MetricsLogger import MetricsLogger
 from .HasLayers import HasLayers
 from .gating.GatingStatsCollector import GatingStatsCollector
-
 
 
 class DefaultLightningModule(LightningModule, HasLayers):
@@ -46,15 +46,35 @@ class DefaultLightningModule(LightningModule, HasLayers):
         )
         self.model = self.model_adapter.model
         target = self.model
-# walk through nested wrappers to reach the actual base model
-        if hasattr(target, "base_model") and self.config.finetune_mode != FinetuneMode.FULL:
-            target = target.base_model
-        if hasattr(target, "model") and self.config.finetune_mode != FinetuneMode.FULL:
-            target = target.model  # e.g., LlamaForCausalLM
-        self.old_forward = target.forward
-        target.forward = self.forward  # patch deepest model
+        
+        if self.config.finetune_mode != FinetuneMode.FULL:
+            # unwrap PEFT/adapter shells but keep the causal LM head so the
+            # original loss computation remains available
+            visited = set()
+            while hasattr(target, "base_model"):
+                next_target = getattr(target, "base_model")
+                if (
+                    next_target is None
+                    or next_target is target
+                    or next_target in visited
+                ):
+                    break
+                visited.add(next_target)
+                target = next_target
 
-# keep reference on outer model for direct calls if needed
+            while (
+                hasattr(target, "model")
+                and not self._has_output_head(target)
+            ):
+                next_target = getattr(target, "model")
+                if next_target is None or next_target is target:
+                    break
+                target = next_target
+                
+        self.old_forward = target.forward
+        target.forward = self.forward  # patch module we're wrapping
+
+        # keep reference on outer model for direct calls if needed
         self.model.forward = target.forward
 
         self.percent_tokens_skipped = []
@@ -64,6 +84,27 @@ class DefaultLightningModule(LightningModule, HasLayers):
         )
 
         self.gating_stats_collector = GatingStatsCollector()
+
+    @staticmethod
+    def _has_output_head(module) -> bool:
+        """Return True if the module exposes an LM head/output projection."""
+
+        if module is None:
+            return False
+
+        head_attrs = ("lm_head", "embed_out", "output_projection")
+        if any(hasattr(module, attr) for attr in head_attrs):
+            return True
+
+        get_output_embeddings = getattr(module, "get_output_embeddings", None)
+        if callable(get_output_embeddings):
+            try:
+                return get_output_embeddings() is not None
+            except TypeError:
+                # Some implementations require arguments; assume head exists
+                return True
+
+        return False
 
     def on_before_optimizer_step(self, _):
         """Log gradient norms before optimization step"""
@@ -129,7 +170,10 @@ class DefaultLightningModule(LightningModule, HasLayers):
 
         self.metrics_logger.dump_first_batch(kwargs)
 
-        if self.config.use_early_exit and self.config.early_exit_method == EarlyExitMethod.LAYERSKIP:
+        if (
+            self.config.use_early_exit
+            and self.config.early_exit_method == EarlyExitMethod.LAYERSKIP
+        ):
             draft = self.model.generate(*args, **kwargs)
             original_method = self.config.early_exit_method
             original_ratio = self.config.desired_skip_ratio
@@ -181,19 +225,20 @@ class DefaultLightningModule(LightningModule, HasLayers):
         return output
 
     def sample_generate(self):
-        string = self.tokenizer.encode(
-            "My dog is ",
-            return_tensors="pt",
-        ).to(self.device)
+        pass
+        # string = self.tokenizer.encode(
+        #    "My dog is ",
+        #    return_tensors="pt",
+        # ).to(self.device)
 
-        generated = self.generate(
-            input_ids=string,
-            max_length=100,
-            max_new_tokens=100,
-            eos_token_id=self.tokenizer.eos_token_id,
-        )
+        # generated = self.generate(
+        #    input_ids=string,
+        #    max_length=100,
+        #    max_new_tokens=100,
+        #    eos_token_id=self.tokenizer.eos_token_id,
+        # )
 
-        print("Sample generation: ", self.tokenizer.decode(generated[0]))
+        # print("Sample generation: ", self.tokenizer.decode(generated[0]))
 
     def on_validation_start(self):
         self.sample_generate()

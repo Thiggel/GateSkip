@@ -47,8 +47,9 @@ srun python -m experiment \
   --seq-length 2048 \
   --finetune-mode frozen \
   --mode evaluate \
-  --evaluation-metrics csqa_gen,gsm8k,mmlu_gen \
+  --evaluation-metrics csqa_gen,gsm8k \
   --num-fewshot 0 \
   --experiment-name llama8b_instruct_gateskip_frozen \
   --load-from-checkpoint llama8b_instruct_gateskip_frozen \
   --project-name gateskip
+
