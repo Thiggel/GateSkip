@@ -14,6 +14,25 @@ cd $HOME/GateSkip
 
 srun python -m experiment \
   --model-name "meta-llama/Llama-3.1-8B" \
+  --dataset fineweb \
+  --pretrained \
+  --batch-size 1 \
+  --eval-batch-size 4 \
+  --seq-length 128 \
+  --learning-rate 3e-6 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 1 \
+  --finetune-mode frozen \
+  --trainable-layers -1 \
+  --experiment-name llama8b_one_layer_baseline \
+  --save-to-checkpoint llama8b_one_layer_baseline \
+  --max-hours 9 \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-8B" \
   --pretrained \
   --eval-batch-size 4 \
   --seq-length 2048 \
