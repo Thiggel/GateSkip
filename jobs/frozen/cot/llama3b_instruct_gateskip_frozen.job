@@ -1,0 +1,53 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=16
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=48:00:00
+#SBATCH --job-name=llama3b_instruct_gateskip_frozen
+#SBATCH --output=job_logs/frozen/llama3b_instruct_gateskip_frozen-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-3B-Instruct" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --use-gating \
+  --entropy-loss-weight 0.0 \
+  --sparsity-loss-weight 1.0 \
+  --skip-modules \
+  --increasing-threshold \
+  --start-thr-percentile 0.0 \
+  --end-thr-percentile 0.2 \
+  --num-increasing-steps 6800 \
+  --batch-size 2 \
+  --eval-batch-size 4 \
+  --seq-length 2048 \
+  --learning-rate 1e-4 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 5 \
+  --finetune-mode frozen \
+  --experiment-name llama3b_instruct_gateskip_frozen \
+  --save-to-checkpoint llama3b_instruct_gateskip_frozen \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.2-3B-Instruct" \
+  --pretrained \
+  --use-gating \
+  --skip-modules \
+  --eval-batch-size 4 \
+  --seq-length 2048 \
+  --finetune-mode frozen \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,mmlu_gen \
+  --num-fewshot 0 \
+  --experiment-name llama3b_instruct_gateskip_frozen \
+  --load-from-checkpoint llama3b_instruct_gateskip_frozen \
+  --project-name gateskip

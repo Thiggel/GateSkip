@@ -1,0 +1,46 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=368640
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=36:00:00
+#SBATCH --job-name=llama8b_instruct_one_layer_baseline
+#SBATCH --output=job_logs/frozen/llama8b_instruct_one_layer_baseline-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-8B-Instruct" \
+  --dataset csqa_gsm8k_gen \
+  --pretrained \
+  --batch-size 2 \
+  --eval-batch-size 4 \
+  --seq-length 2048 \
+  --learning-rate 1e-4 \
+  --warmup-steps 1000 \
+  --lr-decay-steps 6800 \
+  --max-epochs 5 \
+  --finetune-mode frozen \
+  --trainable-layers -1 \
+  --experiment-name llama8b_instruct_one_layer_baseline \
+  --save-to-checkpoint llama8b_instruct_one_layer_baseline \
+  --project-name gateskip \
+  --enable-logging
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-8B-Instruct" \
+  --pretrained \
+  --eval-batch-size 4 \
+  --seq-length 2048 \
+  --finetune-mode frozen \
+  --trainable-layers -1 \
+  --mode evaluate \
+  --evaluation-metrics csqa_gen,gsm8k,mmlu_gen \
+  --num-fewshot 0 \
+  --experiment-name llama8b_instruct_one_layer_baseline \
+  --load-from-checkpoint llama8b_instruct_one_layer_baseline \
+  --project-name gateskip

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_h100
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=368640
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=10:00:00
+#SBATCH --job-name=llama8b_instruct_gateskip_frozen
+#SBATCH --output=job_logs/frozen/llama8b_instruct_gateskip_frozen-%A.out
+
+cd $HOME/GateSkip
+
+. jobs/environment.sh
+
+srun python -m experiment \
+  --model-name "meta-llama/Llama-3.1-8B-Instruct" \
+  --pretrained \
+  --use-gating \
+  --skip-modules \
+  --eval-batch-size 4 \
+  --seq-length 2048 \
+  --finetune-mode frozen \
+  --mode evaluate \
+  --evaluation-metrics commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2 \
+  --num-fewshot 0 \
+  --experiment-name llama8b_instruct_gateskip_frozen \
+  --load-from-checkpoint llama8b_instruct_gateskip_frozen \
+  --project-name gateskip

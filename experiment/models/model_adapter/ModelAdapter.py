@@ -364,6 +364,9 @@ class ModelAdapter(HasLayers):
         # Add gating or MoD if needed
         model = self._wrap_with_adaptive_compute(model)
 
+        if self.config.trainable_layers is not None:
+            self._set_trainable_layers(model)
+
         # Apply LoRA if needed
         if self.config.finetune_mode == FinetuneMode.LORA:
             model = get_peft_model(model, self.lora_config)
@@ -383,6 +386,21 @@ class ModelAdapter(HasLayers):
             )
             model = self.set_decoder_layers(model, layers)
         return model
+
+    def _set_trainable_layers(self, model: PreTrainedModel) -> None:
+        trainable_layers = set(
+            self._get_all_layers(model, self.config.trainable_layers)
+        )
+
+        if not trainable_layers:
+            return
+
+        layers = self.get_decoder_layers(model)
+
+        for idx, layer in enumerate(layers):
+            requires_grad = idx in trainable_layers
+            for param in layer.parameters():
+                param.requires_grad = requires_grad
 
     def _get_peft_model(self, model: PreTrainedModel) -> PreTrainedModel:
         if self.config.finetune_mode == FinetuneMode.LORA:
