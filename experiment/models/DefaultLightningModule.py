@@ -46,15 +46,35 @@ class DefaultLightningModule(LightningModule, HasLayers):
         )
         self.model = self.model_adapter.model
         target = self.model
-# walk through nested wrappers to reach the actual base model
-        if hasattr(target, "base_model") and self.config.finetune_mode != FinetuneMode.FULL:
-            target = target.base_model
-        if hasattr(target, "model") and self.config.finetune_mode != FinetuneMode.FULL:
-            target = target.model  # e.g., LlamaForCausalLM
-        self.old_forward = target.forward
-        target.forward = self.forward  # patch deepest model
 
-# keep reference on outer model for direct calls if needed
+        if self.config.finetune_mode != FinetuneMode.FULL:
+            # unwrap PEFT/adapter shells but keep the causal LM head so the
+            # original loss computation remains available
+            visited = set()
+            while hasattr(target, "base_model"):
+                next_target = getattr(target, "base_model")
+                if (
+                    next_target is None
+                    or next_target is target
+                    or next_target in visited
+                ):
+                    break
+                visited.add(next_target)
+                target = next_target
+
+            while (
+                hasattr(target, "model")
+                and not self._has_output_head(target)
+            ):
+                next_target = getattr(target, "model")
+                if next_target is None or next_target is target:
+                    break
+                target = next_target
+
+        self.old_forward = target.forward
+        target.forward = self.forward  # patch module we're wrapping
+
+        # keep reference on outer model for direct calls if needed
         self.model.forward = target.forward
 
         self.percent_tokens_skipped = []
@@ -64,6 +84,27 @@ class DefaultLightningModule(LightningModule, HasLayers):
         )
 
         self.gating_stats_collector = GatingStatsCollector()
+
+    @staticmethod
+    def _has_output_head(module) -> bool:
+        """Return True if the module exposes an LM head/output projection."""
+
+        if module is None:
+            return False
+
+        head_attrs = ("lm_head", "embed_out", "output_projection")
+        if any(hasattr(module, attr) for attr in head_attrs):
+            return True
+
+        get_output_embeddings = getattr(module, "get_output_embeddings", None)
+        if callable(get_output_embeddings):
+            try:
+                return get_output_embeddings() is not None
+            except TypeError:
+                # Some implementations require arguments; assume head exists
+                return True
+
+        return False
 
     def on_before_optimizer_step(self, _):
         """Log gradient norms before optimization step"""
