@@ -47,7 +47,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
         self.model = self.model_adapter.model
         target = self.model
         
-        if self.config.finetune_mode != FinetuneMode.FULL:
+        if self.config.finetune_mode != FinetuneMode.FULL and False:
             # unwrap PEFT/adapter shells but keep the causal LM head so the
             # original loss computation remains available
             visited = set()

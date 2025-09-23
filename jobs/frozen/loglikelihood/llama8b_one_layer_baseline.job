@@ -2,8 +2,7 @@
 
 #SBATCH --partition=gpu_h100
 #SBATCH --gpus=1
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=368640
+#SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=06:00:00
 #SBATCH --job-name=llama8b_one_layer_baseline
