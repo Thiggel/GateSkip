@@ -34,7 +34,7 @@ srun python -m experiment \
   --finetune-mode frozen \
   --experiment-name llama1b_gateskip_frozen \
   --save-to-checkpoint llama1b_gateskip_frozen \
-  --max-hours 16 \
+  --max-hours 9 \
   --project-name gateskip \
   --enable-logging
 
@@ -51,5 +51,5 @@ srun python -m experiment \
   --num-fewshot 0 \
   --experiment-name llama1b_gateskip_frozen \
   --load-from-checkpoint llama1b_gateskip_frozen \
-  --max-hours 16 \
+  --max-hours 3 \
   --project-name gateskip

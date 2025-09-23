@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=24:00:00
+#SBATCH --time=12:00:00
 #SBATCH --job-name=llama8b_instruct_one_layer_baseline
 #SBATCH --output=job_logs/frozen/llama8b_instruct_one_layer_baseline-%A.out
 
@@ -27,7 +27,7 @@ srun python -m experiment \
   --trainable-layers -1 \
   --experiment-name llama8b_instruct_one_layer_baseline \
   --save-to-checkpoint llama8b_instruct_one_layer_baseline \
-  --max-hours 16 \
+  --max-hours 9 \
   --project-name gateskip \
   --enable-logging
 
@@ -43,5 +43,5 @@ srun python -m experiment \
   --num-fewshot 0 \
   --experiment-name llama8b_instruct_one_layer_baseline \
   --load-from-checkpoint llama8b_instruct_one_layer_baseline \
-  --max-hours 16 \
+  --max-hours 3 \
   --project-name gateskip
