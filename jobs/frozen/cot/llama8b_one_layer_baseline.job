@@ -27,6 +27,7 @@ srun python -m experiment \
   --trainable-layers -1 \
   --experiment-name llama8b_one_layer_baseline \
   --save-to-checkpoint llama8b_one_layer_baseline \
+  --max-hours 16 \
   --project-name gateskip \
   --enable-logging
 
@@ -42,4 +43,5 @@ srun python -m experiment \
   --num-fewshot 0 \
   --experiment-name llama8b_one_layer_baseline \
   --load-from-checkpoint llama8b_one_layer_baseline \
+  --max-hours 16 \
   --project-name gateskip
