@@ -321,11 +321,12 @@ class ModelAdapter(HasLayers):
     def _initialize_model(self) -> PreTrainedModel:
         """Initialize the model with appropriate configuration"""
         if self.config.pretrained:
-            model = AutoModelForCausalLM.from_pretrained(
-                self.config.model_name,
-                attn_implementation="eager",
-                device_map=self.device_map,
-            )
+            with torch.no_grad():
+                model = AutoModelForCausalLM.from_pretrained(
+                    self.config.model_name,
+                    attn_implementation="eager",
+                    device_map=self.device_map,
+                )
         else:
             config = AutoConfig.from_pretrained(self.config.model_name)
             config.vocab_size = self.tokenizer.vocab_size
@@ -351,11 +352,12 @@ class ModelAdapter(HasLayers):
             model = self._load_from_checkpoint(model)
 
         if self.config.use_kl_div_training:
-            self.orig_model = AutoModelForCausalLM.from_pretrained(
-                self.config.model_name,
-                attn_implementation="eager",
-                device_map=self.device_map,
-            )
+            with torch.no_grad():
+                self.orig_model = AutoModelForCausalLM.from_pretrained(
+                    self.config.model_name,
+                    attn_implementation="eager",
+                    device_map=self.device_map,
+                )
             self.orig_model.use_cache = False
             self.orig_model.train()
             for param in self.orig_model.parameters():
