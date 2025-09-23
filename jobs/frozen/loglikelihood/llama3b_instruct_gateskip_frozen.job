@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=08:00:00
+#SBATCH --time=12:00:00
 #SBATCH --job-name=llama3b_instruct_gateskip_frozen
 #SBATCH --output=job_logs/frozen/llama3b_instruct_gateskip_frozen-%A.out
 
@@ -25,4 +25,5 @@ srun python -m experiment \
   --num-fewshot 0 \
   --experiment-name llama3b_instruct_gateskip_frozen \
   --load-from-checkpoint llama3b_instruct_gateskip_frozen \
+  --max-hours 3 \
   --project-name gateskip
