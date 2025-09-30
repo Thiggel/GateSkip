@@ -1,6 +1,5 @@
 from pydantic import Field
 from enum import Enum
-from typing import Optional
 
 
 class GatingType(str, Enum):
@@ -17,6 +16,11 @@ class GenerationMode(str, Enum):
 class GatingMode(str, Enum):
     BEFORE_MODULE = "before_module"
     AFTER_MODULE = "after_module"
+
+
+class SparsityLossType(str, Enum):
+    L1 = "l1"
+    L2 = "l2"
 
 
 class GatingConfig:
@@ -101,6 +105,10 @@ class GatingConfig:
         0.01, description="Weight for entropy maximization loss"
     )
     sparsity_loss_weight: float = Field(0.01, description="Weight for sparsity loss")
+    sparsity_loss_type: SparsityLossType = Field(
+        SparsityLossType.L2,
+        description="Type of sparsity loss to apply to gate values",
+    )
 
     gate_attention: bool = Field(True, description="Whether to gate attention outputs")
     gate_mlp: bool = Field(True, description="Whether to gate MLP outputs")

@@ -3,6 +3,7 @@ import torch
 from typing import Dict, Optional
 
 from experiment.configs.ModelConfig import ModelConfig
+from experiment.configs.GatingConfig import SparsityLossType
 
 from .GateLayer import GateLayer
 from .GatedWrapper import GatedWrapper
@@ -63,7 +64,10 @@ class ModelGating(nn.Module):
                     entropy_loss += self._compute_entropy_loss(gate_value)
 
                 if self.config.sparsity_loss_weight > 0:
-                    sparsity_loss += gate_value.abs().mean()
+                    if self.config.sparsity_loss_type == SparsityLossType.L1:
+                        sparsity_loss += gate_value.abs().mean()
+                    else:
+                        sparsity_loss += gate_value.pow(2).mean()
 
                 num_modules += 1
 
