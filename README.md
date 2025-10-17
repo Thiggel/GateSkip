@@ -19,7 +19,7 @@ GateSkip addresses the growing cost of running large decoder‑only Transformers
 * **Patience & entropy exits:** Training‑free PABEE and DeeBERT options allow early termination when predictions stabilise or entropy drops below a threshold.
 
 ## Repository Structure
-
+```
 ├── README.md              ← this file
 ├── environment.yml        ← conda environment specification
 ├── requirements.txt       ← pip requirements
@@ -39,7 +39,7 @@ GateSkip addresses the growing cost of running large decoder‑only Transformers
 │   ├── cot/               ← generative chain‑of‑thought experiments
 │   ├── loglikelihood/     ← log‑likelihood evaluation experiments
 ├── lm_eval/               ← LM‑Eval Harness tasks and configs
-
+```
 
 ## Experiments and Job Files
 
