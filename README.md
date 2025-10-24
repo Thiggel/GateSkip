@@ -1,8 +1,10 @@
-# Gating the Residual Stream for Efficient Layer-Skipping
+# What Layers When: Learning to Skip Compute in LLMs with Residual Gates
+
+Link to paper: https://www.arxiv.org/abs/2510.13876
 
 ## Title and Abstract
 
-**Gating the Residual Stream for Efficient Layer-Skipping**
+**What Layers When: Learning to Skip Compute in LLMs with Residual Gates**
 
 *Abstract:* Large language models’ escalating computational demands pose significant deployment challenges in resource-constrained environments. To address this, we introduce **GateSkip**, a lightweight residual‑stream gating mechanism that enables efficient computation via dynamic layer skipping. Whereas early‑exit schemes perturb representations via auxiliary LM losses on intermediate states and mixture‑of‑depth methods introduce hard, non‑differentiable routers, GateSkip instead injects smooth, trainable gates into every attention and MLP residual branch—compressing each module’s output to dynamically gauge token‑level importance without disturbing pretrained weights or destabilizing training. This design offers several key benefits: (1) enhanced training stability through smooth, differentiable gating; (2) minimal disruption of pre‑trained representations; (3) fine‑grained control at both token and module levels; and (4) seamless compatibility with other efficiency techniques, such as quantization. Experiments show that GateSkip yields up to a 15% reduction in computation while maintaining over 90% of the original accuracy on reasoning tasks. Analysis of the learned gate values provides novel insights into transformer information flow, notably highlighting the critical role of BOS tokens as reference points.
 
