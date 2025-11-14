@@ -1,0 +1,15 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=GateSkip-Llama-3b
+#SBATCH --output=job_logs/GateSkip-Llama-3b/loglikelihood_%j.txt
+#SBATCH --partition=a100
+#SBATCH --gres=gpu:a100:1 -C a100_80
+#SBATCH --time=23:00:00
+#SBATCH --nodes=1
+
+cd "$HOME/GateSkip"
+
+. jobs/environment.sh
+. jobs/job_common.sh
+
+run_job "GateSkip-Llama-3b" "loglikelihood" "GateSkip-Llama-3b"

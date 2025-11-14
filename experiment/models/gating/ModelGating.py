@@ -66,8 +66,23 @@ class ModelGating(nn.Module):
                 if self.config.sparsity_loss_weight > 0:
                     if self.config.sparsity_loss_type == SparsityLossType.L1:
                         sparsity_loss += gate_value.abs().mean()
-                    else:
+                    elif self.config.sparsity_loss_type == SparsityLossType.L2:
                         sparsity_loss += gate_value.pow(2).mean()
+                    elif self.config.sparsity_loss_type == SparsityLossType.KL:
+                        target_keep_prob = 1.0 - self.config.desired_skip_ratio
+                        target = torch.full_like(gate_value, target_keep_prob)
+                        eps = 1e-6
+                        gate_prob = gate_value.clamp(eps, 1.0 - eps)
+                        target_prob = target.clamp(eps, 1.0 - eps)
+                        kl_loss = gate_prob * torch.log(gate_prob / target_prob)
+                        kl_loss += (1 - gate_prob) * torch.log(
+                            (1 - gate_prob) / (1 - target_prob)
+                        )
+                        sparsity_loss += kl_loss.mean()
+                    else:
+                        raise ValueError(
+                            f"Unsupported sparsity loss type: {self.config.sparsity_loss_type}"
+                        )
 
                 num_modules += 1
 

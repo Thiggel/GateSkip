@@ -21,6 +21,7 @@ class GatingMode(str, Enum):
 class SparsityLossType(str, Enum):
     L1 = "l1"
     L2 = "l2"
+    KL = "kl"
 
 
 class GatingConfig:
