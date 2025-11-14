@@ -7,7 +7,16 @@ if [[ -z "${SCRATCH:-}" || -z "${WORK:-}" ]]; then
 fi
 
 if command -v module >/dev/null 2>&1; then
-  module load cuda/12.1.1 || true
+  module load cuda/12.1.1
+fi
+
+if [[ -z "${CUDA_HOME:-}" ]]; then
+  if [[ -d /usr/local/cuda ]]; then
+    export CUDA_HOME=/usr/local/cuda
+  else
+    echo "CUDA_HOME is not set; ensure cuda/12.1.1 module exports CUDA_HOME." >&2
+    exit 1
+  fi
 fi
 
 unset SLURM_EXPORT_ENV || true
@@ -63,7 +72,7 @@ APPTAINER_RUN=(
   --env CHECKPOINT_ROOT="${CHECKPOINT_ROOT}"
   --env HUGGINGFACE_TOKEN="${HUGGINGFACE_TOKEN:-}"
   --env WANDB_API_KEY="${WANDB_API_KEY:-}"
-  --env CUDA_HOME="${CUDA_HOME:-}"
+  --env CUDA_HOME="${CUDA_HOME}"
   --env PYTHONNOUSERSITE="${PYTHONNOUSERSITE}"
   --env PYTHONPATH="${PYTHONPATH}"
   "${IMAGE_PATH}"
