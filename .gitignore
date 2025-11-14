@@ -172,7 +172,6 @@ wandb
 tmp*
 *.swp
 *.swo
-jobs/environment.sh
 gsm8k_oai
 gsm8k_oai/*
 csqa_gen

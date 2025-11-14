@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 #SBATCH --partition=gpu_h100
 #SBATCH --gpus=1
@@ -8,11 +8,11 @@
 #SBATCH --job-name=llama1b_free
 #SBATCH --output=job_logs/cot/llama1b_free-%A.out
 
-cd $HOME/GateSkip
+cd "$HOME/GateSkip"
 
 . jobs/environment.sh
 
-#srun python -m experiment \
+# srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" -m experiment \
 #  --model-name "meta-llama/Llama-3.2-1B" \
 #  --dataset csqa_gsm8k_gen \
 #  --pretrained \
@@ -34,7 +34,7 @@ cd $HOME/GateSkip
 #  --project-name gateskip \
 #  --enable-logging
  
-srun python -m experiment \
+srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" -m experiment \
   --model-name "meta-llama/Llama-3.2-1B" \
   --pretrained \
   --use-early-exit \
@@ -53,7 +53,7 @@ srun python -m experiment \
   --load-from-checkpoint llama1b_free_cot \
   --project-name gateskip
 
-#srun python -m experiment \
+# srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" -m experiment \
 #  --model-name "meta-llama/Llama-3.2-1B" \
 #  --pretrained \
 #  --use-early-exit \

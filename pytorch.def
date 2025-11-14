@@ -1,0 +1,37 @@
+Bootstrap: docker
+From: dockerhub-mirror3.rrze.uni-erlangen.de/pytorch/pytorch:latest
+
+%environment
+# Keep builds reproducible and avoid leaking host env
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+export PYTHONUNBUFFERED=1
+# If you’re behind a proxy:
+export http_proxy=http://proxy:80
+export https_proxy=http://proxy:80
+# Good default arch list; trim to what you have (e.g., 80=A100, 89=H100)
+export TORCH_CUDA_ARCH_LIST="80;86;89;90"
+
+%files
+    requirements.txt /
+
+%post
+    export http_proxy=http://proxy:80
+    export https_proxy=http://proxy:80
+    set -e
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git build-essential python3.10 python3.10-dev python3.10-distutils python3-pip ninja-build
+
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.10 2
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 2
+
+    python3.10 -m pip install --upgrade pip wheel
+    python3.10 -m pip install -r requirements.txt
+
+    # Clean apt cache
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+%runscript
+    # Forward-compat: container just runs whatever you pass
+    exec "$@"

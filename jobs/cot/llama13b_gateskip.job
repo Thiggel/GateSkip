@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 #SBATCH --partition=gpu_h100
 #SBATCH --gpus=2
@@ -8,11 +8,11 @@
 #SBATCH --job-name=llama13b_gateskip
 #SBATCH --output=job_logs/cot/llama13b_gateskip-%A.out
 
-cd $HOME/GateSkip
+cd "$HOME/GateSkip"
 
 . jobs/environment.sh
 
-srun python -m experiment \
+srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" -m experiment \
   --model-name "TroyDoesAI/Llama-3.1-13B-Instruct" \
   --dataset csqa_gsm8k_gen \
   --pretrained \
@@ -40,7 +40,7 @@ srun python -m experiment \
   --use-gradient-checkpointing \
   --enable-logging
  
-#srun python -m experiment \
+# srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" -m experiment \
 #  --model-name "TroyDoesAI/Llama-3.1-13B-Instruct" \
 #  --pretrained \
 #  --use-gating \
