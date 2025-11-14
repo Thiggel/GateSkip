@@ -23,7 +23,6 @@ REPO_DIR=$(pwd)
 REPO_NAME=${REPO_NAME:-GateSkip}
 APPTAINER_BIN=${APPTAINER:-apptainer}
 IMAGE_PATH="${WORK}/${REPO_NAME}/images/pytorch.sif"
-OVERLAY_PATH="${WORK}/${REPO_NAME}/overlays/pytorch.ext3"
 
 export APPTAINER_CACHEDIR="${SCRATCH}/apptainer-cache"
 export PIP_CACHE_DIR="${SCRATCH}/pip-cache"
@@ -50,14 +49,8 @@ if [[ ! -f "${IMAGE_PATH}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${OVERLAY_PATH}" ]]; then
-  echo "Missing overlay at ${OVERLAY_PATH}. Run setup.sh before launching jobs." >&2
-  exit 1
-fi
-
 APPTAINER_RUN=(
   "${APPTAINER_BIN}" exec --nv --cleanenv
-  --overlay "${OVERLAY_PATH}"
   --bind "${SCRATCH}:${SCRATCH}","${WORK}:${WORK}","${REPO_DIR}:${REPO_DIR}"
   --pwd "${REPO_DIR}"
   --env APPTAINER_CACHEDIR="${APPTAINER_CACHEDIR}"
