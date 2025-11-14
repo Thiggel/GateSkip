@@ -41,6 +41,7 @@ export HF_HUB_CACHE="${HF_HOME}/hub"
 export TRANSFORMERS_CACHE="${HF_HOME}/transformers"
 export WANDB_DIR="${SCRATCH}/wandb"
 export CHECKPOINT_ROOT="${WORK}/${REPO_NAME}/checkpoints"
+export BASE_CACHE_DIR="${WORK}/${REPO_NAME}/cache"
 export PYTHONNOUSERSITE=1
 export PYTHONPATH=
 
@@ -51,7 +52,8 @@ mkdir -p \
   "${HF_HUB_CACHE}" \
   "${TRANSFORMERS_CACHE}" \
   "${WANDB_DIR}" \
-  "${CHECKPOINT_ROOT}"
+  "${CHECKPOINT_ROOT}" \
+  "${BASE_CACHE_DIR}"
 
 if [[ ! -f "${IMAGE_PATH}" ]]; then
   echo "Missing apptainer image at ${IMAGE_PATH}. Run setup.sh before launching jobs." >&2
@@ -70,6 +72,7 @@ APPTAINER_RUN=(
   --env TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE}"
   --env WANDB_DIR="${WANDB_DIR}"
   --env CHECKPOINT_ROOT="${CHECKPOINT_ROOT}"
+  --env BASE_CACHE_DIR="${BASE_CACHE_DIR}"
   --env HUGGINGFACE_TOKEN="${HUGGINGFACE_TOKEN:-}"
   --env WANDB_API_KEY="${WANDB_API_KEY:-}"
   --env CUDA_HOME="${CUDA_HOME}"
