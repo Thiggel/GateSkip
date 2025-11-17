@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 import json
 from experiment.configs.GatingConfig import GenerationMode
@@ -111,7 +110,8 @@ class ModelEvaluator:
 
         print("gen_kwargs_str:", gen_kwargs_str)
 
-        tm = TaskManager(include_path=os.path.join(sys.path[0], "lm_eval", "tasks"))
+        include_path = Path(__file__).resolve().parents[2] / "lm_eval" / "tasks"
+        tm = TaskManager(include_path=str(include_path))
 
         output = evaluator.simple_evaluate(
             model=wrapped_model,
