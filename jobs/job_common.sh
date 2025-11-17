@@ -28,6 +28,19 @@ add_gate_defaults() {
   additional_eval_args+=(--use-gating --skip-modules)
 }
 
+ensure_max_hours() {
+  local -n args=$1
+  local hours=$2
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    if [[ "${args[$i]}" == "--max-hours" ]]; then
+      return
+    fi
+  done
+
+  args+=(--max-hours "$hours")
+}
+
 run_job() {
   local setting="$1"
   local mode="$2" # cot or loglikelihood
@@ -285,6 +298,10 @@ run_job() {
       return 1
       ;;
   esac
+
+  if [[ "$mode" == "loglikelihood" ]]; then
+    ensure_max_hours additional_train_args 2
+  fi
 
   if [[ "$mode" == "cot" ]]; then
     seq_length_train="$seq_length_train_cot"
