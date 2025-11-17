@@ -79,10 +79,7 @@ class TrainRunner(Runner, HasTokenizer, HasModel):
         return ""
 
     def _setup_trainer(self, seed: int) -> Trainer:
-        checkpoint_dir = (
-            Path(os.environ.get("PYTORCH_LIGHTNING_HOME"))
-            / self.experiment_config.experiment_name
-        )
+        checkpoint_dir = Path(os.environ.get("CHECKPOINT_ROOT"))
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         self.step_checkpoint = ModelCheckpoint(

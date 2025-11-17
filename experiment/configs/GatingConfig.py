@@ -21,6 +21,7 @@ class GatingMode(str, Enum):
 class SparsityLossType(str, Enum):
     L1 = "l1"
     L2 = "l2"
+    KL = "kl"
 
 
 class GatingConfig:
@@ -106,7 +107,7 @@ class GatingConfig:
     )
     sparsity_loss_weight: float = Field(0.01, description="Weight for sparsity loss")
     sparsity_loss_type: SparsityLossType = Field(
-        SparsityLossType.L2,
+        'l2',
         description="Type of sparsity loss to apply to gate values",
     )
 
