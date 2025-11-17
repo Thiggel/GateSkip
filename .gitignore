@@ -178,3 +178,5 @@ csqa_gen
 csqa_gen/*
 data
 data/*
+gsm8k_csqa_gen
+meta-llama

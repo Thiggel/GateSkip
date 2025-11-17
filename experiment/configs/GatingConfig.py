@@ -107,7 +107,7 @@ class GatingConfig:
     )
     sparsity_loss_weight: float = Field(0.01, description="Weight for sparsity loss")
     sparsity_loss_type: SparsityLossType = Field(
-        SparsityLossType.L2,
+        'l2',
         description="Type of sparsity loss to apply to gate values",
     )
 
