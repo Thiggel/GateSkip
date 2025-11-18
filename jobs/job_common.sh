@@ -212,6 +212,36 @@ run_job() {
       additional_train_args+=(--use-mlp-gate)
       additional_eval_args+=(--use-mlp-gate)
       ;;
+    GateSkip-frozen-backbone-MLP)
+      add_gate_defaults
+      batch_size=2
+      eval_train_batch_size=4
+      seq_length_train_cot=2048
+      seq_length_train_loglik=2048
+      seq_length_train="$seq_length_train_cot"
+      seq_length_eval=2048
+      learning_rate=1e-4
+      max_epochs=3
+      finetune_mode="frozen"
+      eval_batch_size=8
+      additional_train_args+=(--use-mlp-gate --max-hours 9)
+      additional_eval_args+=(--use-mlp-gate --max-hours 3)
+      ;;
+    GateSkip-frozen-backbone-MLP-shared)
+      add_gate_defaults
+      batch_size=2
+      eval_train_batch_size=4
+      seq_length_train_cot=2048
+      seq_length_train_loglik=2048
+      seq_length_train="$seq_length_train_cot"
+      seq_length_eval=2048
+      learning_rate=1e-4
+      max_epochs=3
+      finetune_mode="frozen"
+      eval_batch_size=8
+      additional_train_args+=(--use-mlp-gate --no-one-gate-per-layer --max-hours 9)
+      additional_eval_args+=(--use-mlp-gate --no-one-gate-per-layer --max-hours 3)
+      ;;
     GateSkip-before-module)
       add_gate_defaults
       additional_train_args+=(--gating-mode before_module)
