@@ -111,6 +111,18 @@ class GatingConfig:
         description="Type of sparsity loss to apply to gate values",
     )
 
+    use_vllm_kernels: bool = Field(
+        False,
+        description=(
+            "Enable the fused Triton kernel for GateSkip masking/gating."
+            " Defaults to the existing PyTorch path when disabled."
+        ),
+    )
+    vllm_kernel_block_size: int = Field(
+        256,
+        description="Block size used by the Triton GateSkip kernel when enabled.",
+    )
+
     gate_attention: bool = Field(True, description="Whether to gate attention outputs")
     gate_mlp: bool = Field(True, description="Whether to gate MLP outputs")
     generation_mode: GenerationMode = Field(

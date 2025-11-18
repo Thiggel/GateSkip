@@ -1,0 +1,29 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=GateSkip-separate-vector-eval
+#SBATCH --output=job_logs/GateSkip-separate-vector/cot_eval_%j.txt
+#SBATCH --partition=a100
+#SBATCH --gres=gpu:a100:1 -C a100_80
+#SBATCH --time=23:00:00
+#SBATCH --nodes=1
+
+cd "$HOME/GateSkip"
+
+. jobs/environment.sh
+. jobs/job_common.sh
+
+# Enable vLLM-backed evaluation with batch-size autotuning to maximize throughput
+# under the provided budget, and collect FLOP/time profiling metrics.
+EVAL_BATCH_BUDGET=${EVAL_BATCH_BUDGET:-1024}
+EXTRA_EVAL_ARGS=(
+  --use-vllm-backend
+  --vllm-autotune-batch
+  --vllm-max-autotune-batch "$EVAL_BATCH_BUDGET"
+  --vllm-autotune-trials 5
+  --vllm-profile-warmups 1
+  --vllm-profile-steps 3
+)
+export EXTRA_EVAL_ARGS
+
+# Only run evaluation (training checkpoint expected from the main job).
+run_job "GateSkip-separate-vector" "cot" "GateSkip-separate-vector" true
