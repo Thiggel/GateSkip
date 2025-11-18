@@ -97,6 +97,8 @@ class ModelEvaluator:
         # return results
         ### /TEST
 
+        self.eval_batch_size = 64
+
         wrapped_model = HFLM(
             pretrained=self.model,
             tokenizer=self.tokenizer,
@@ -126,7 +128,7 @@ class ModelEvaluator:
             log_samples=True,
             gen_kwargs=gen_kwargs_str,
             task_manager=tm,
-            limit=limit,
+            limit=1000,
         )
 
         # samples = {}

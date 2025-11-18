@@ -28,19 +28,6 @@ add_gate_defaults() {
   additional_eval_args+=(--use-gating --skip-modules)
 }
 
-ensure_max_hours() {
-  local -n args=$1
-  local hours=$2
-
-  for ((i = 0; i < ${#args[@]}; i++)); do
-    if [[ "${args[$i]}" == "--max-hours" ]]; then
-      return
-    fi
-  done
-
-  args+=(--max-hours "$hours")
-}
-
 run_job() {
   local setting="$1"
   local mode="$2" # cot or loglikelihood
@@ -82,6 +69,13 @@ run_job() {
     seq_length_train="$seq_length_train_loglik"
     eval_metrics="$eval_metrics_loglik"
   fi
+
+  if [[ "$mode" == "cot" ]]; then
+    seq_length_train="$seq_length_train_cot"
+  else
+    seq_length_train="$seq_length_train_loglik"
+  fi
+
 
   case "$setting" in
     MoD)
@@ -307,9 +301,10 @@ run_job() {
     GateSkip-Llama-8b)
       add_gate_defaults
       model_name="meta-llama/Llama-3.1-8B"
-      eval_batch_size=32
+      eval_batch_size=1
       additional_eval_args+=(--skip-layers)
       additional_train_args+=(--max-hours 8)
+      seq_length_train=16
       ;;
     GateSkip-Gemma-2b)
       add_gate_defaults
@@ -329,16 +324,6 @@ run_job() {
       ;;
   esac
 
-  if [[ "$mode" == "loglikelihood" ]]; then
-    ensure_max_hours additional_train_args 2
-  fi
-
-  if [[ "$mode" == "cot" ]]; then
-    seq_length_train="$seq_length_train_cot"
-  else
-    seq_length_train="$seq_length_train_loglik"
-  fi
-
   local train_args=(
     --experiment-name "$experiment_name"
     --model-name "$model_name"
@@ -351,6 +336,7 @@ run_job() {
     --warmup-steps "$warmup_steps"
     --lr-decay-steps "$lr_decay_steps"
     --max-epochs "$max_epochs"
+    --max-hours 2
     --finetune-mode "$finetune_mode"
     --save-to-checkpoint "$save_checkpoint"
     --project-name gateskip

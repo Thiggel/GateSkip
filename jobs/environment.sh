@@ -76,6 +76,8 @@ APPTAINER_RUN=(
   --env HUGGINGFACE_TOKEN="${HUGGINGFACE_TOKEN:-}"
   --env WANDB_API_KEY="${WANDB_API_KEY:-}"
   --env CUDA_HOME="${CUDA_HOME}"
+  --env http_proxy="http://proxy:80"
+  --env https_proxy="http://proxy:80"
   --env PYTHONNOUSERSITE="${PYTHONNOUSERSITE}"
   --env PYTHONPATH="${PYTHONPATH}"
   "${IMAGE_PATH}"
