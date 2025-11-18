@@ -21,6 +21,10 @@ class EvaluationConfig(BaseModel):
     eval_batch_size: int = Field(
         300, description="The batch size to use for evaluation"
     )
+    auto_adjust_batch_size: bool = Field(
+        False,
+        description="Automatically scale eval batch size based on skip budget",
+    )
     num_fewshot: int = Field(0, description="The number of few-shot examples to use")
     use_quantization: bool = Field(
         False, description="Whether to use quantization for evaluation"

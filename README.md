@@ -139,5 +139,18 @@ bash
 
    
 bash
-   python collect_results.py --input_dir path/to/job_outputs/ --output_file results_summary.json
+  python collect_results.py --input_dir path/to/job_outputs/ --output_file results_summary.json
+
+## Measuring Runtime Performance
+
+During evaluation the runner now records wall-clock latency and throughput in tokens per second. These metrics are written to each results JSON and summarized when running `collect_results.py` in a file named `latency_throughput.csv`.
+
+When passing the `--auto-adjust-batch-size` flag the evaluation batch size scales with the skip budget, enabling larger batches as more computation is skipped.
+
+To benchmark latency of the Llama‑1B baseline and GateSkip models on CoT tasks run:
+
+```bash
+sbatch jobs/cot/llama1b_latency.job
+```
+
 

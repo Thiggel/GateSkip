@@ -63,6 +63,12 @@ class SkipLayerWrapper(nn.Module):
         else:
             compute_mask = gate.argmax(dim=-1).bool()
 
+        if not compute_mask.any():
+            self.calculate_statistics(~compute_mask)
+            if "past_key_value" in kwargs and kwargs["past_key_value"] is not None:
+                return (hidden_states, kwargs["past_key_value"])
+            return hidden_states
+
         module_output = self.module(hidden_states, *args, **kwargs)
         main_output = module_output[0] if isinstance(module_output, tuple) else module_output
 
