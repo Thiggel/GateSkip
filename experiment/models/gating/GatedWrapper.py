@@ -4,6 +4,7 @@ from typing import Any, Optional, Union
 
 from experiment.configs.ModelConfig import ModelConfig
 from experiment.configs.GatingConfig import GatingMode
+from experiment.models.gating.vllm_kernel import gate_skip_kernel
 from experiment.utils.threshold_finder import ThresholdFinder
 
 
@@ -244,11 +245,20 @@ class GatedWrapper(nn.Module):
         if updated_kv_cache is not None:
             module_output = (main_output, updated_kv_cache)
 
-        if self.config.actually_gate:
-            main_output = gate_value * main_output
+        if self.config.use_vllm_kernels:
+            main_output = gate_skip_kernel(
+                main_output,
+                gate_value,
+                skip_mask,
+                block_size=self.config.vllm_kernel_block_size,
+                apply_gate=self.config.actually_gate,
+            )
+        else:
+            if self.config.actually_gate:
+                main_output = gate_value * main_output
 
-        zero_output = torch.zeros_like(hidden_states)
-        main_output = torch.where(skip_mask, zero_output, main_output)
+            zero_output = torch.zeros_like(hidden_states)
+            main_output = torch.where(skip_mask, zero_output, main_output)
 
         if isinstance(module_output, tuple):
             return (main_output,) + module_output[1:]

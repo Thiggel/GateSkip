@@ -17,7 +17,7 @@ import json
 from experiment.experiment import Runner
 from experiment.experiment import ExperimentConfig
 from experiment.configs import ModelConfig, DataConfig, TrainingConfig, EvaluationConfig, EarlyExitMethod
-from experiment.model_evaluator import ModelEvaluator
+from experiment.model_evaluator import ModelEvaluator, VLLMModelEvaluator
 from experiment.models.mixture_of_depths import ModWrapper
 from experiment.models.early_exit import EarlyExitWrapper
 
@@ -172,6 +172,11 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         return (lo + hi) / 2
 
     def run(self, seed: int, state_dict: torch.Tensor = None) -> Dict[str, float]:
+        if (
+            self.evaluation_config.use_vllm_backend
+            and self.evaluation_config.vllm_kernel_mode == "triton"
+        ):
+            self.model_config.use_vllm_kernels = True
         model = self._load_model(seed, mode="test")
         if torch.cuda.device_count() <= 1:
             model = model.to(self.device)
@@ -224,13 +229,32 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         # )
         # print("Sample generation: ", self.tokenizer.decode(generated[0]))
 
-        evaluator_full = ModelEvaluator(
-            model,
-            self.tokenizer,
-            self.evaluation_config.eval_batch_size,
-            self.evaluation_config.num_fewshot,
-            self.data_config.seq_length,
-        )
+        if self.evaluation_config.use_vllm_backend:
+            try:
+                evaluator_full = VLLMModelEvaluator(
+                    model,
+                    self.tokenizer,
+                    self.model_config,
+                    self.evaluation_config,
+                    self.data_config,
+                )
+            except Exception as exc:
+                print(f"Failed to initialize vLLM evaluator, falling back: {exc}")
+                evaluator_full = ModelEvaluator(
+                    model,
+                    self.tokenizer,
+                    self.evaluation_config.eval_batch_size,
+                    self.evaluation_config.num_fewshot,
+                    self.data_config.seq_length,
+                )
+        else:
+            evaluator_full = ModelEvaluator(
+                model,
+                self.tokenizer,
+                self.evaluation_config.eval_batch_size,
+                self.evaluation_config.num_fewshot,
+                self.data_config.seq_length,
+            )
         metrics = self.evaluation_config.evaluation_metrics
         all_results = {}
 
