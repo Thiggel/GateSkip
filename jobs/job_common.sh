@@ -41,7 +41,7 @@ run_job() {
   local eval_metrics_cot="csqa_gen,gsm8k,mmlu_gen,piqa_gen"
   local eval_metrics_loglik="commonsense_qa,piqa,mmlu_stem,hellaswag,winogrande,openbookqa,squadv2,lambada"
   local eval_batch_size=128
-  local seq_length_train_cot=4096
+  local seq_length_train_cot=1024
   local seq_length_train_loglik=512
   local seq_length_eval=4096
   local batch_size=1
