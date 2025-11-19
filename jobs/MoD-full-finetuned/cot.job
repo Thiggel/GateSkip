@@ -1,0 +1,15 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=MoD-full-finetuned
+#SBATCH --output=job_logs/MoD-full-finetuned/cot_%j.txt
+#SBATCH --partition=a100
+#SBATCH --gres=gpu:a100:1 -C a100_80
+#SBATCH --time=23:00:00
+#SBATCH --nodes=1
+
+cd "$HOME/GateSkip"
+
+. jobs/environment.sh
+. jobs/job_common.sh
+
+run_job "MoD" "cot" "MoD-full-finetuned"
