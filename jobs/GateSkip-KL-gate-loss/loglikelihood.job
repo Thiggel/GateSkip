@@ -12,4 +12,4 @@ cd "$HOME/GateSkip"
 . jobs/environment.sh
 . jobs/job_common.sh
 
-run_job "GateSkip-KL-gate-loss" "loglikelihood" "GateSkip-KL-gate-loss"
+run_job "GateSkip-KL-gate-loss" "loglikelihood" "GateSkip-KL-gate-loss" true

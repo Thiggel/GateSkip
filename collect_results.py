@@ -1,65 +1,160 @@
-import json
 import argparse
+import json
+import os
+import re
+import time
 from pathlib import Path
+from typing import Callable, Dict, Iterable, List
+import numbers
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
-import time
 
 # disable MathJax loading in interactive contexts
 pio.mathjax = ""
 
 
-def load_data(json_path: Path):
-    """Load JSON experiment data, extract actual compute-saved percentages, and clean raw data."""
-    with open(json_path, "r") as f:
+def extract_accuracy(entry: Dict[str, float]) -> float:
+    return entry.get(
+        "acc,none",
+        entry.get(
+            "exact_match,strict-match",
+            entry.get("bleu,none", np.nan),
+        ),
+    )
+
+
+def extract_perplexity(entry: Dict[str, float], metric_key: str = "perplexity,none") -> float:
+    return entry.get(metric_key, np.nan)
+
+
+def find_result_files(results_dir: Path, experiment_name: str) -> List[Path]:
+    pattern = f"{experiment_name}_seed*_results.json"
+
+    def seed_sort_key(path: Path) -> int:
+        match = re.search(r"_seed(\\d+)_results$", path.stem)
+        if match:
+            return int(match.group(1))
+        return int(1e9)
+
+    candidates = sorted(results_dir.glob(pattern), key=seed_sort_key)
+    if candidates:
+        return candidates
+
+    fallback = results_dir / f"{experiment_name}_results.json"
+    if fallback.exists():
+        return [fallback]
+    return []
+
+
+def load_seed_result(path: Path) -> Dict[str, object]:
+    with open(path, "r") as f:
         data = json.load(f)
 
     comp_keys = sorted(data.keys(), key=lambda k: float(k))
+    cleaned = {}
     compute = []
-    for k in comp_keys:
-        pct = data[k].pop("percent_tokens_skipped", None)
+    compute_map: Dict[str, float] = {}
+    for key in comp_keys:
+        entry = data[key]
+        entry = entry.copy()
+        pct = entry.pop("percent_tokens_skipped", None)
         if pct is None:
-            pct = float(k)
-        compute.append(pct * 100)
-    return data, np.array(compute)
+            pct = float(key)
+        compute_val = pct * 100
+        compute.append(compute_val)
+        compute_map[key] = compute_val
+        cleaned[key] = entry
+
+    return {
+        "path": path,
+        "keys": comp_keys,
+        "compute": np.array(compute, dtype=float),
+        "compute_map": compute_map,
+        "data": cleaned,
+    }
 
 
-def extract_metric_series(
-    data: dict, compute: np.ndarray, benchmark: str, metric_key: str = "acc,none"
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Extract accuracy and stderr arrays for a given benchmark across thresholds.
-    """
-    acc_list, stderr_list = [], []
-    for comp_frac in sorted(data.keys(), key=lambda k: float(k)):
-        entry = data[comp_frac].get(benchmark, {})
-        metric = entry.get(
-            "acc,none",
-            entry.get("exact_match,strict-match", entry.get("bleu,none", np.nan)),
-        )
-        acc_list.append(metric)
-        std = entry.get(
-            "acc_stderr,none",
-            entry.get(
-                "exact_match_stderr,strict-match", entry.get("bleu_stderr,none", np.nan)
-            ),
-        )
-        stderr_list.append(std)
-    return np.array(acc_list), np.array(stderr_list)
+def merge_compute_keys(seed_results: List[Dict[str, object]]) -> List[str]:
+    unique = set()
+    for seed in seed_results:
+        unique.update(seed["keys"])
+    return sorted(unique, key=lambda k: float(k))
 
 
-def extract_perplexity_series(
-    data: dict, compute: np.ndarray, benchmark: str, metric_key: str = "perplexity,none"
+def build_metric_tensor(
+    seed_results: List[Dict[str, object]],
+    comp_keys: Iterable[str],
+    benchmark: str,
+    extractor: Callable[[Dict[str, float]], float],
 ) -> np.ndarray:
-    """Extract perplexity values for a given benchmark across thresholds."""
-    ppl_list = []
-    for comp_frac in sorted(data.keys(), key=lambda k: float(k)):
-        entry = data[comp_frac].get(benchmark, {})
-        ppl = entry.get(metric_key, np.nan)
-        ppl_list.append(ppl)
-    return np.array(ppl_list)
+    rows = []
+    for seed in seed_results:
+        row = []
+        seed_data = seed["data"]
+        for key in comp_keys:
+            entry = seed_data.get(key)
+            if entry is None:
+                row.append(np.nan)
+                continue
+            bench_entry = entry.get(benchmark)
+            if not isinstance(bench_entry, dict):
+                row.append(np.nan)
+                continue
+            row.append(extractor(bench_entry))
+        rows.append(row)
+    return np.array(rows, dtype=float)
+
+
+def build_compute_matrix(
+    seed_results: List[Dict[str, object]], comp_keys: Iterable[str]
+) -> np.ndarray:
+    comp_keys = list(comp_keys)
+    idx_map = {key: idx for idx, key in enumerate(comp_keys)}
+    matrix = np.full((len(seed_results), len(comp_keys)), np.nan, dtype=float)
+    for seed_idx, seed in enumerate(seed_results):
+        for key, value in seed["compute_map"].items():
+            matrix[seed_idx, idx_map[key]] = value
+    return matrix
+
+
+def interpolate_tensor(
+    tensor: np.ndarray, compute_arrays: np.ndarray, targets: np.ndarray
+) -> np.ndarray:
+    per_seed = []
+    for seed_idx in range(tensor.shape[0]):
+        values = tensor[seed_idx]
+        compute = compute_arrays[seed_idx]
+        mask = ~np.isnan(values) & ~np.isnan(compute)
+        if mask.sum() < 2:
+            per_seed.append(np.full_like(targets, np.nan, dtype=float))
+            continue
+        per_seed.append(
+            np.interp(targets, compute[mask], values[mask], left=np.nan, right=np.nan)
+        )
+    return np.array(per_seed, dtype=float)
+
+
+def format_mean_std(mean_arr: Iterable[float], std_arr: Iterable[float], precision: int = 2) -> List[str]:
+    formatted = []
+    for mean, std in zip(mean_arr, std_arr):
+        if np.isnan(mean) and np.isnan(std):
+            formatted.append("nan")
+        else:
+            formatted.append(f"{mean:.{precision}f}±{std:.{precision}f}")
+    return formatted
+
+
+def nanmean(arr: np.ndarray, axis: int = 0) -> np.ndarray:
+    with np.errstate(invalid="ignore"):
+        return np.nanmean(arr, axis=axis)
+
+
+def nanstd(arr: np.ndarray, axis: int = 0) -> np.ndarray:
+    with np.errstate(invalid="ignore"):
+        return np.nanstd(arr, axis=axis)
 
 
 def compute_saved_at_retained(
@@ -69,134 +164,365 @@ def compute_saved_at_retained(
     Find the rightmost compute-saved percentage where accuracy >= target_ratio * base accuracy.
     Falls back to linear interpolation if none meet the threshold.
     """
+    mask = ~np.isnan(acc) & ~np.isnan(compute)
+    if mask.sum() == 0:
+        return np.nan
+
+    acc = acc[mask]
+    compute = compute[mask]
+
+    if len(acc) == 0:
+        return np.nan
+
     base_acc = acc[0]
+    if np.isnan(base_acc):
+        return np.nan
+
     target_acc = base_acc * target_ratio
     mask = acc >= target_acc
     if mask.any():
         return float(np.max(compute[mask]))
+    if len(acc) < 2:
+        return np.nan
     # fallback interpolation
-    return float(np.interp(target_acc, acc[::-1], compute[::-1]))
+    try:
+        return float(np.interp(target_acc, acc[::-1], compute[::-1]))
+    except ValueError:
+        return np.nan
+
+
+def compute_saved_stats(
+    metric_tensor: np.ndarray,
+    compute_arrays: np.ndarray,
+    target_ratio: float = 0.90,
+) -> tuple[float, float]:
+    per_seed = []
+    for idx in range(metric_tensor.shape[0]):
+        value = compute_saved_at_retained(
+            metric_tensor[idx], compute_arrays[idx], target_ratio=target_ratio
+        )
+        if not np.isnan(value):
+            per_seed.append(value)
+    if not per_seed:
+        return np.nan, np.nan
+    per_seed = np.array(per_seed, dtype=float)
+    return float(np.mean(per_seed)), float(np.std(per_seed))
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Analyze experiment JSON and summarize results"
+        description="Analyze experiment JSON and summarize results",
     )
     parser.add_argument(
-        "json_file", type=Path, help="Path to JSON file with experiment data"
+        "--experiment-name",
+        required=True,
+        help="Experiment name used when launching jobs (e.g. GateSkip-separate-vector_cot)",
+    )
+    parser.add_argument(
+        "--results-dir",
+        type=Path,
+        default=None,
+        help="Directory containing *_results.json files (defaults to $BASE_CACHE_DIR/results)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Optional directory for output artifacts (defaults to <results-dir>/<experiment-name>)",
     )
     args = parser.parse_args()
 
-    data, compute = load_data(args.json_file)
-    first_key = sorted(data.keys(), key=lambda k: float(k))[0]
+    if args.results_dir is None:
+        base_cache = Path(os.environ.get("BASE_CACHE_DIR", "."))
+        results_dir = base_cache / "results"
+    else:
+        results_dir = args.results_dir
+    results_dir = results_dir.expanduser().resolve()
+
+    files = find_result_files(results_dir, args.experiment_name)
+    if not files:
+        raise FileNotFoundError(
+            f"No results found for {args.experiment_name} in {results_dir}"
+        )
+
+    seed_results = [load_seed_result(path) for path in files]
+    comp_keys = merge_compute_keys(seed_results)
+    compute_matrix = build_compute_matrix(seed_results, comp_keys)
+    compute_mean = nanmean(compute_matrix, axis=0)
+    compute_std = nanstd(compute_matrix, axis=0)
+
+    print(
+        f"Loaded {len(files)} seed result files for {args.experiment_name}:"
+        f" {', '.join(path.name for path in files)}"
+    )
+
+    sample_entry = None
+    sample_key = None
+    sample_seed_idx = None
+    for seed_idx, seed in enumerate(seed_results):
+        for key in comp_keys:
+            candidate = seed["data"].get(key)
+            if isinstance(candidate, dict) and candidate:
+                sample_entry = candidate
+                sample_key = key
+                sample_seed_idx = seed_idx
+                break
+        if sample_entry:
+            break
+    if sample_entry is None:
+        raise ValueError("Could not locate any benchmark entries in the results")
     benchmarks = [
         bm
-        for bm, val in data[first_key].items()
-        if isinstance(val, dict) if not (bm.startswith("mmlu_") and bm not in ["mmlu_stem", "mmlu_gen"])
+        for bm, val in sample_entry.items()
+        if isinstance(val, dict)
+        if not (bm.startswith("mmlu_") and bm not in ["mmlu_stem", "mmlu_gen"])
     ]
 
+    profile_metrics: List[str] = []
+    profile_metric_set = set()
+    for seed in seed_results:
+        for entry in seed["data"].values():
+            profile = entry.get("vllm_profile")
+            if isinstance(profile, dict):
+                for key, value in profile.items():
+                    if isinstance(value, numbers.Number):
+                        profile_metric_set.add(key)
+    if profile_metric_set:
+        profile_metrics = sorted(profile_metric_set)
+        benchmarks = [bm for bm in benchmarks if bm != "vllm_profile"]
 
-    out_dir = args.json_file.with_suffix("").name
-    Path(out_dir).mkdir(exist_ok=True)
+    out_dir = args.output_dir or (results_dir / args.experiment_name)
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    accuracy_tensors: Dict[str, np.ndarray] = {}
+    perplexity_tensors: Dict[str, np.ndarray] = {}
+    for bm in benchmarks:
+        accuracy_tensors[bm] = build_metric_tensor(
+            seed_results, comp_keys, bm, extract_accuracy
+        )
+        perplexity_tensors[bm] = build_metric_tensor(
+            seed_results, comp_keys, bm, extract_perplexity
+        )
+
+    compute_labels = [
+        f"{mean:.2f}%±{std:.2f}%" for mean, std in zip(compute_mean, compute_std)
+    ]
 
     # 1) Compute Saved @90%
-    saved = {}
+    saved_rows = {}
     for bm in benchmarks:
-        acc, _ = extract_metric_series(data, compute, bm)
-        saved[bm] = compute_saved_at_retained(acc, compute, target_ratio=0.90)
-    df_saved = pd.DataFrame.from_dict(
-        saved, orient="index", columns=["Compute Saved @90%"]
-    )
+        mean_saved, std_saved = compute_saved_stats(
+            accuracy_tensors[bm], compute_matrix, target_ratio=0.90
+        )
+        saved_rows[bm] = {
+            "Compute Saved Mean (%)": mean_saved,
+            "Compute Saved Std (%)": std_saved,
+        }
+    df_saved = pd.DataFrame.from_dict(saved_rows, orient="index")
     df_saved.index.name = "Benchmark"
     df_saved.to_csv(Path(out_dir) / "saved_at_90.csv")
+    df_saved_print = pd.DataFrame(index=df_saved.index)
+    df_saved_print["Compute Saved @90%"] = format_mean_std(
+        df_saved["Compute Saved Mean (%)"], df_saved["Compute Saved Std (%)"]
+    )
     print("=== Compute Saved @90% ===")
-    print(df_saved)
+    print(df_saved_print)
 
-    # 2) Accuracy @0% compute omitted (percent with two decimals)
-    acc0 = {}
+    # 2) Accuracy @0% compute omitted
+    acc0_rows = {}
     for bm in benchmarks:
-        acc, _ = extract_metric_series(data, compute, bm)
-        acc0[bm] = round(acc[0] * 100, 2)
-    df_acc0 = pd.DataFrame.from_dict(acc0, orient="index", columns=["Accuracy @0%"])
+        acc_mean = nanmean(accuracy_tensors[bm], axis=0)[0] * 100
+        acc_std = nanstd(accuracy_tensors[bm], axis=0)[0] * 100
+        acc0_rows[bm] = {"Accuracy Mean (%)": acc_mean, "Accuracy Std (%)": acc_std}
+    df_acc0 = pd.DataFrame.from_dict(acc0_rows, orient="index")
     df_acc0.index.name = "Benchmark"
     df_acc0.to_csv(Path(out_dir) / "accuracy_at_0.csv")
-    print("\n=== Accuracy @0% Compute Omitted ===")
-    print(df_acc0)
-
-    # 3) Raw results table with acc±stderr (percent with two decimals) sorted by compute saved
-    # build raw DataFrame
-    idx_labels = [f"{c:.2f}%" for c in compute]
-    raw = pd.DataFrame(index=idx_labels)
-    raw.index.name = "Compute Saved (%)"
-    for bm in benchmarks:
-        acc, stderr = extract_metric_series(data, compute, bm)
-        raw[bm] = [f"{a*100:.2f}\u00B1{s*100:.2f}" for a, s in zip(acc, stderr)]
-        ppl = extract_perplexity_series(data, compute, bm)
-        if not np.isnan(ppl).all():
-            ppl_values = [f"{p:.2f}" for p in ppl]
-            insert_idx = raw.columns.get_loc(bm) + 1
-            raw.insert(insert_idx, f"{bm} Perplexity", ppl_values)
-    # sort rows by numeric compute-saved
-    order = np.argsort(compute)
-    raw = raw.iloc[order]
-    raw.to_csv(Path(out_dir) / "raw_results.csv")
-    print("\n=== Raw Results (sorted) ===")
-    print(raw)
-
-    # ——————————————————————————————————————————————————————————
-    # 4) Interpolated accuracies + average across benchmarks
-    targets = np.array([0, 5, 10, 15, 20, 25, 30, 45, 60])  # desired Compute Saved (%)
-    interp_dict = {}
-
-    for bm in benchmarks:
-        acc, _ = extract_metric_series(data, compute, bm)
-        acc_pct = acc * 100
-        # linear interpolation over the sorted compute axis
-        interp_acc = np.interp(targets, compute, acc_pct)
-        interp_dict[bm] = interp_acc
-
-        # add the "Perplexity" column if it exists
-        ppl = extract_perplexity_series(data, compute, bm)
-        if not np.isnan(ppl).all():
-            interp_dict[f"{bm} PPL"] = np.interp(targets, compute, ppl)
-
-
-
-    # build DataFrame (rows are the target compute‐saved %, cols are benchmarks)
-    df_interp = pd.DataFrame(
-        interp_dict,
-        index=[f"{t:.0f}%" for t in targets],
+    df_acc0_print = pd.DataFrame(index=df_acc0.index)
+    df_acc0_print["Accuracy @0%"] = format_mean_std(
+        df_acc0["Accuracy Mean (%)"], df_acc0["Accuracy Std (%)"]
     )
+    print("\n=== Accuracy @0% Compute Omitted ===")
+    print(df_acc0_print)
+
+    # 3) Raw results table with acc±std (percent with two decimals) sorted by compute saved
+    idx_labels = compute_labels
+    raw_numeric = pd.DataFrame(index=idx_labels)
+    raw_numeric.index.name = "Compute Saved (%)"
+    raw_display = pd.DataFrame(index=idx_labels)
+    raw_display.index.name = "Compute Saved (%)"
+
+    for bm in benchmarks:
+        acc_mean = nanmean(accuracy_tensors[bm], axis=0) * 100
+        acc_std = nanstd(accuracy_tensors[bm], axis=0) * 100
+        raw_numeric[f"{bm} Mean"] = acc_mean
+        raw_numeric[f"{bm} Std"] = acc_std
+        raw_display[bm] = format_mean_std(acc_mean, acc_std)
+
+        ppl_tensor = perplexity_tensors[bm]
+        if not np.isnan(ppl_tensor).all():
+            ppl_mean = nanmean(ppl_tensor, axis=0)
+            ppl_std = nanstd(ppl_tensor, axis=0)
+            raw_numeric[f"{bm} Perplexity Mean"] = ppl_mean
+            raw_numeric[f"{bm} Perplexity Std"] = ppl_std
+            raw_display[f"{bm} Perplexity"] = format_mean_std(
+                ppl_mean, ppl_std
+            )
+
+    raw_numeric.to_csv(Path(out_dir) / "raw_results.csv")
+    print("\n=== Raw Results (sorted) ===")
+    print(raw_display)
+
+    profile_display = None
+    if profile_metrics:
+        profile_numeric = pd.DataFrame(index=idx_labels)
+        profile_numeric.index.name = "Compute Saved (%)"
+        profile_display = pd.DataFrame(index=idx_labels)
+        profile_display.index.name = "Compute Saved (%)"
+
+        def make_profile_extractor(metric_name: str) -> Callable[[Dict[str, float]], float]:
+            def _extract(entry: Dict[str, float]) -> float:
+                value = entry.get(metric_name, np.nan)
+                return float(value) if isinstance(value, numbers.Number) else np.nan
+
+            return _extract
+
+        for metric in profile_metrics:
+            tensor = build_metric_tensor(
+                seed_results,
+                comp_keys,
+                "vllm_profile",
+                make_profile_extractor(metric),
+            )
+            metric_mean = nanmean(tensor, axis=0)
+            metric_std = nanstd(tensor, axis=0)
+            profile_numeric[f"{metric} Mean"] = metric_mean
+            profile_numeric[f"{metric} Std"] = metric_std
+            profile_display[metric] = format_mean_std(metric_mean, metric_std, precision=3)
+
+        profile_numeric.to_csv(Path(out_dir) / "vllm_profile_metrics.csv")
+        print("\n=== vLLM Profile Metrics ===")
+        print(profile_display)
+
+    # 4) Interpolated accuracies + average across benchmarks
+    targets = np.array([0, 5, 10, 15, 20, 25, 30, 45, 60], dtype=float)
+    target_labels = [f"{t:.0f}%" for t in targets]
+    df_interp = pd.DataFrame(index=target_labels)
     df_interp.index.name = "Compute Saved (%)"
+    df_interp_print = pd.DataFrame(index=target_labels)
+    df_interp_print.index.name = "Compute Saved (%)"
 
-    # add the “Average” column
-    df_interp["Average"] = df_interp.filter(regex='^(?!.*PPL)').mean(axis=1)
+    interp_cache = {}
+    ppl_interp_cache = {}
 
-    df_interp["PPL Average"] = df_interp.filter(like="PPL").mean(axis=1)
+    for bm in benchmarks:
+        seed_interp = interpolate_tensor(
+            accuracy_tensors[bm] * 100, compute_matrix, targets
+        )
+        interp_cache[bm] = seed_interp
+        mean_interp = nanmean(seed_interp, axis=0)
+        std_interp = nanstd(seed_interp, axis=0)
+        df_interp[f"{bm} Mean"] = mean_interp
+        df_interp[f"{bm} Std"] = std_interp
+        df_interp_print[bm] = format_mean_std(mean_interp, std_interp)
 
-    # write out and display
+        ppl_tensor = perplexity_tensors[bm]
+        if not np.isnan(ppl_tensor).all():
+            ppl_interp = interpolate_tensor(ppl_tensor, compute_matrix, targets)
+            ppl_interp_cache[bm] = ppl_interp
+            ppl_mean = nanmean(ppl_interp, axis=0)
+            ppl_std = nanstd(ppl_interp, axis=0)
+            df_interp[f"{bm} PPL Mean"] = ppl_mean
+            df_interp[f"{bm} PPL Std"] = ppl_std
+            df_interp_print[f"{bm} PPL"] = format_mean_std(ppl_mean, ppl_std)
+
+    if interp_cache:
+        stack = np.stack(list(interp_cache.values()), axis=0)
+        avg_seed = nanmean(stack, axis=0)
+        avg_mean = nanmean(avg_seed, axis=0)
+        avg_std = nanstd(avg_seed, axis=0)
+        df_interp["Average Mean"] = avg_mean
+        df_interp["Average Std"] = avg_std
+        df_interp_print["Average"] = format_mean_std(avg_mean, avg_std)
+
+    if ppl_interp_cache:
+        ppl_stack = np.stack(list(ppl_interp_cache.values()), axis=0)
+        ppl_avg_seed = nanmean(ppl_stack, axis=0)
+        ppl_avg_mean = nanmean(ppl_avg_seed, axis=0)
+        ppl_avg_std = nanstd(ppl_avg_seed, axis=0)
+        df_interp["PPL Average Mean"] = ppl_avg_mean
+        df_interp["PPL Average Std"] = ppl_avg_std
+        df_interp_print["PPL Average"] = format_mean_std(
+            ppl_avg_mean, ppl_avg_std
+        )
+
     df_interp.to_csv(Path(out_dir) / "interpolated_accuracies.csv")
     print("\n=== Interpolated Accuracies + Average ===")
-    print(df_interp)
+    print(df_interp_print)
 
-    # Print LaTeX
     summary = df_saved.join(df_acc0)
-    print("\n% LaTeX: Summary table")
-    print(summary.to_latex(float_format="%.2f"))
-    print("\n% LaTeX: Raw results table (sorted)")
-    print(raw.to_latex(escape=False))
+    summary_print = pd.DataFrame(index=summary.index)
+    summary_print["Compute Saved @90%"] = df_saved_print["Compute Saved @90%"]
+    summary_print["Accuracy @0%"] = df_acc0_print["Accuracy @0%"]
 
-    # 4) Plots: Accuracy vs Compute Saved
+    print("\n% LaTeX: Summary table")
+    print(summary_print.to_latex(escape=False))
+    print("\n% LaTeX: Raw results table (sorted)")
+    print(raw_display.to_latex(escape=False))
+    if profile_display is not None:
+        print("\n% LaTeX: vLLM profile metrics")
+        print(profile_display.to_latex(escape=False))
+    print("\n% LaTeX: Interpolated Accuracies + Average")
+    print(df_interp_print.to_latex(escape=False))
+
+    order = np.argsort(compute_mean)
+    x = compute_mean[order]
     for bm in benchmarks:
-        acc, _ = extract_metric_series(data, compute, bm)
-        x = compute[order]
-        y = acc[order] * 100
-        fig = go.Figure(
-            go.Scatter(x=x, y=y, mode="lines+markers", line_shape="spline", name=bm)
+        acc_mean = nanmean(accuracy_tensors[bm], axis=0) * 100
+        acc_std = nanstd(accuracy_tensors[bm], axis=0) * 100
+        y = acc_mean[order]
+        y_std = acc_std[order]
+        upper = y + y_std
+        lower = np.maximum(y - y_std, 0)
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=upper,
+                mode="lines",
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=lower,
+                mode="lines",
+                fill="tonexty",
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=y,
+                mode="lines+markers",
+                line_shape="spline",
+                name=bm,
+            )
         )
 
         yaxis_label = "Accuracy"
-        if "bleu,none" in list(list(data.values())[0].values())[0].keys():
+        sample_metrics = {}
+        if sample_seed_idx is not None and sample_key is not None:
+            seed_data = seed_results[sample_seed_idx]["data"].get(sample_key, {})
+            if isinstance(seed_data, dict):
+                sample_metrics = seed_data.get(bm, {})
+        if isinstance(sample_metrics, dict) and "bleu,none" in sample_metrics:
             yaxis_label = "BLEU"
 
         fig.update_layout(

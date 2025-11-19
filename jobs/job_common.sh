@@ -386,4 +386,14 @@ run_job() {
       run_experiment "${eval_variant_args[@]}"
     done
   fi
+
+  local results_dir="${BASE_CACHE_DIR}/results"
+  if [[ -d "${results_dir}" ]]; then
+    srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" collect_results.py \
+      --experiment-name "${experiment_name}" \
+      --results-dir "${results_dir}" \
+      --output-dir "${results_dir}/${experiment_name}"
+  else
+    echo "Skipping collect_results.py because ${results_dir} does not exist" >&2
+  fi
 }
