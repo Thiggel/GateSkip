@@ -15,6 +15,7 @@ cd "$HOME/GateSkip"
 # Enable vLLM-backed evaluation with batch-size autotuning to maximize throughput
 # under the provided budget, and collect FLOP/time profiling metrics.
 EVAL_BATCH_BUDGET=${EVAL_BATCH_BUDGET:-1024}
+export EVAL_RESULTS_SUFFIX="vllm"
 EXTRA_EVAL_ARGS=(
   --use-vllm-backend
   --vllm-autotune-batch
