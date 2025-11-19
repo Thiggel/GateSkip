@@ -12,4 +12,4 @@ cd "$HOME/GateSkip"
 . jobs/environment.sh
 . jobs/job_common.sh
 
-run_job "GateSkip-frozen-backbone-MLP-shared" "cot" "GateSkip-frozen-backbone-MLP-shared" true
+run_job "GateSkip-frozen-backbone-MLP-shared" "cot" "GateSkip-frozen-backbone-MLP-shared"

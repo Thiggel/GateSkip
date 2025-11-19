@@ -35,7 +35,6 @@ run_job() {
   local setting="$1"
   local mode="$2" # cot or loglikelihood
   local job_id="$3"
-  local skip_train="${4:-false}"
 
   local experiment_name="${job_id}_${mode}"
   local model_name="meta-llama/Llama-3.2-1B"
@@ -390,9 +389,7 @@ run_job() {
   add_seed_args train_args
   add_seed_args eval_args
 
-  if [[ "$skip_train" != "true" ]]; then
-    run_experiment "${train_args[@]}"
-  fi
+  run_experiment "${train_args[@]}"
   run_experiment "${eval_args[@]}"
 
   if [[ ${#additional_eval_invocations[@]} -gt 0 ]]; then

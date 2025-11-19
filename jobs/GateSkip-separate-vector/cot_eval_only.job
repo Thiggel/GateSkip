@@ -27,4 +27,4 @@ EXTRA_EVAL_ARGS=(
 export EXTRA_EVAL_ARGS
 
 # Only run evaluation (training checkpoint expected from the main job).
-run_job "GateSkip-separate-vector" "cot" "GateSkip-separate-vector" true
+run_job "GateSkip-separate-vector" "cot" "GateSkip-separate-vector"

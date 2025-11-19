@@ -12,4 +12,4 @@ cd "$HOME/GateSkip"
 . jobs/environment.sh
 . jobs/job_common.sh
 
-run_job "random-skipping-baseline" "loglikelihood" "random-skipping-baseline" true
+run_job "random-skipping-baseline" "loglikelihood" "random-skipping-baseline"
