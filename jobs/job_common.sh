@@ -86,6 +86,12 @@ run_job() {
     MoD)
       additional_train_args+=(--use-mod --mod-capacity-factor 0.8 --skip-threshold 0.0)
       additional_eval_args+=(--use-mod --mod-capacity-factor 0.8 --skip-threshold 0.0)
+      finetune_mode="full"
+      ;;
+    MoD-Router-Tuning)
+      additional_train_args+=(--use-mod --mod-capacity-factor 0.8 --skip-threshold 0.0)
+      additional_eval_args+=(--use-mod --mod-capacity-factor 0.8 --skip-threshold 0.0)
+      finetune_mode="frozen"
       ;;
     CALM)
       additional_train_args+=(--use-early-exit --confidence-measure hidden_state)
