@@ -346,13 +346,18 @@ class ModelAdapter(HasLayers):
 
         model = self._remove_layers(model)
 
+        should_preload_frozen_backbone = (
+            self.evaluation_config.load_from_checkpoint
+            and self.config.finetune_mode == FinetuneMode.FROZEN
+        )
+
+        if should_preload_frozen_backbone:
+            model = self._load_from_checkpoint(model)
+
         # First set requires_grad=False for all parameters if not in FULL mode
         if self.config.finetune_mode != FinetuneMode.FULL:
             for param in model.parameters():
                 param.requires_grad = False
-
-        if self.evaluation_config.load_from_checkpoint:
-            model = self._load_from_checkpoint(model)
 
         if self.config.use_kl_div_training:
             with torch.no_grad():

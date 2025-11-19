@@ -57,6 +57,7 @@ run_job() {
   local enable_logging=true
   local save_checkpoint="${experiment_name}"
   local load_checkpoint="${experiment_name}"
+  local train_load_checkpoint=""
   local additional_train_args=()
   local additional_eval_args=()
   local additional_eval_invocations=()
@@ -222,6 +223,7 @@ run_job() {
       max_epochs=3
       finetune_mode="frozen"
       eval_batch_size=8
+      train_load_checkpoint="random-skipping-baseline_${mode}"
       additional_train_args+=(--use-mlp-gate --max-hours 9)
       additional_eval_args+=(--use-mlp-gate --max-hours 3)
       ;;
@@ -237,6 +239,7 @@ run_job() {
       max_epochs=3
       finetune_mode="frozen"
       eval_batch_size=8
+      train_load_checkpoint="random-skipping-baseline_${mode}"
       additional_train_args+=(--use-mlp-gate --no-one-gate-per-layer --max-hours 9)
       additional_eval_args+=(--use-mlp-gate --no-one-gate-per-layer --max-hours 3)
       ;;
@@ -267,6 +270,7 @@ run_job() {
       max_epochs=5
       finetune_mode="frozen"
       eval_batch_size=8
+      train_load_checkpoint="random-skipping-baseline_${mode}"
       additional_train_args+=(--max-hours 9)
       additional_eval_args+=(--max-hours 3)
       ;;
@@ -346,6 +350,10 @@ run_job() {
     --project-name gateskip
     "${additional_train_args[@]}"
   )
+
+  if [[ -n "$train_load_checkpoint" ]]; then
+    train_args+=(--load-from-checkpoint "$train_load_checkpoint")
+  fi
 
   local eval_args=(
     --experiment-name "$experiment_name"
