@@ -295,9 +295,12 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
                 model.gating_stats_collector.reset_token_stats()
 
             # Save the results to a file
-            results_path = os.path.join(os.environ.get("BASE_CACHE_DIR"), "results")
+            base_cache = os.environ.get("BASE_CACHE_DIR", "")
+            results_path = os.path.join(base_cache, "results")
             os.makedirs(results_path, exist_ok=True)
-            results_file = self.experiment_config.experiment_name + "_results.json"
+            results_file = (
+                f"{self.experiment_config.experiment_name}_seed{seed}_results.json"
+            )
             full_path = os.path.join(results_path, results_file)
             with open(full_path, "w") as f:
                 json.dump(all_results, f)

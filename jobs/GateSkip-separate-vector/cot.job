@@ -12,4 +12,4 @@ cd "$HOME/GateSkip"
 . jobs/environment.sh
 . jobs/job_common.sh
 
-run_job "GateSkip-separate-vector" "cot" "GateSkip-separate-vector"
+run_job "GateSkip-separate-vector" "cot" "GateSkip-separate-vector" true

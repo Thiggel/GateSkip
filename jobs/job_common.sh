@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+module load cuda/12.1.1 || true
+
 set -euo pipefail
 
 DEFAULT_SEEDS=(1 2 3 4 5)
@@ -385,5 +388,15 @@ run_job() {
       local eval_variant_args=(${eval_args[@]} $invocation)
       run_experiment "${eval_variant_args[@]}"
     done
+  fi
+
+  local results_dir="${BASE_CACHE_DIR}/results"
+  if [[ -d "${results_dir}" ]]; then
+    srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" collect_results.py \
+      --experiment-name "${experiment_name}" \
+      --results-dir "${results_dir}" \
+      --output-dir "${results_dir}/${experiment_name}"
+  else
+    echo "Skipping collect_results.py because ${results_dir} does not exist" >&2
   fi
 }
