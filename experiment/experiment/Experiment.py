@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 import wandb
-from typing import Type, TypeVar, Union, cast
+from typing import Optional, Type, TypeVar, Union, cast
 from huggingface_hub import login
 from pydantic import BaseModel
 from logging import getLogger, Logger
@@ -10,8 +10,11 @@ from experiment.cli_manager import CLIManager
 import time
 import torch
 
+from experiment.configs import EvaluationConfig
+from experiment.utils.results import get_results_file_path
+
 from .Runner import Runner
-from .ExperimentConfig import ExperimentConfig
+from .ExperimentConfig import ExperimentConfig, ExperimentMode
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -132,6 +135,13 @@ class Experiment:
                 f"Starting experiment: {self.experiment_config.experiment_name}"
             )
             all_results = self.run_different_seeds()
+
+            if not all_results:
+                self.logger.info(
+                    "No runs executed after cache checks; skipping aggregation."
+                )
+                return {}
+
             aggregated_results = self.get_mean_std(all_results)
 
             self.print_mean_std(aggregated_results)
@@ -149,6 +159,10 @@ class Experiment:
         all_results = []
         for run_idx in range(self.experiment_config.num_runs):
             seed = self.experiment_config.seeds[run_idx]
+
+            if self._should_skip_run(seed):
+                continue
+
             self.logger.info(
                 f"Starting run {run_idx + 1}/{self.experiment_config.num_runs} with seed {seed}"
             )
@@ -161,6 +175,45 @@ class Experiment:
                 if not self.experiment_config.continue_on_error:
                     raise
         return all_results
+
+    def _should_skip_run(self, seed: int) -> bool:
+        if self.experiment_config.mode == ExperimentMode.TRAIN:
+            if self._checkpoint_exists(seed):
+                self.logger.info(
+                    f"Skipping seed {seed} because checkpoint already exists."
+                )
+                return True
+        elif self.experiment_config.mode == ExperimentMode.EVALUATE:
+            if self._results_file_exists(seed):
+                self.logger.info(
+                    f"Skipping seed {seed} because results already exist."
+                )
+                return True
+
+        return False
+
+    def _checkpoint_exists(self, seed: int) -> bool:
+        evaluation_config = cast(
+            Optional[EvaluationConfig], self.configs.get(EvaluationConfig.__name__)
+        )
+        if not evaluation_config or not evaluation_config.save_to_checkpoint:
+            return False
+
+        base_cache = os.environ.get("BASE_CACHE_DIR")
+        if not base_cache:
+            return False
+
+        checkpoint_path = Path(base_cache) / f"{evaluation_config.save_to_checkpoint}_{seed}.pt"
+        return checkpoint_path.is_file()
+
+    def _results_file_exists(self, seed: int) -> bool:
+        if not self.experiment_config:
+            return False
+
+        results_path = get_results_file_path(
+            self.experiment_config.experiment_name, seed
+        )
+        return results_path.is_file()
 
     def _run_single_experiment(self, run_idx: int, seed: int) -> ExperimentResult:
         """Run a single experiment with given seed"""
