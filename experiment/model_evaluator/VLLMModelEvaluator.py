@@ -42,11 +42,14 @@ class VLLMModelEvaluator(ModelEvaluator):
         self.evaluation_config = evaluation_config
         self.data_config = data_config
         self.profile_result: Optional[ProfileResult] = None
+        self.profile_skip_reason: Optional[str] = None
 
     def _maybe_autotune_batch_size(self) -> None:
         if not self.evaluation_config.vllm_autotune_batch:
+            self.profile_skip_reason = "vLLM batch autotuning disabled"
             return
         if not torch.cuda.is_available():
+            self.profile_skip_reason = "CUDA is unavailable for vLLM profiling"
             return
 
         hidden_size = getattr(self.model.model.config, "hidden_size", None)
@@ -54,6 +57,7 @@ class VLLMModelEvaluator(ModelEvaluator):
         num_layers = len(layers) if layers is not None else 0
 
         if hidden_size is None or num_layers == 0:
+            self.profile_skip_reason = "Model metadata missing (hidden_size or decoder layers)"
             return
 
         tuner = VLLMBatchSizer(
@@ -83,6 +87,9 @@ class VLLMModelEvaluator(ModelEvaluator):
         if result is not None:
             self.eval_batch_size = result.batch_size
             self.profile_result = result
+            self.profile_skip_reason = None
+        else:
+            self.profile_skip_reason = "vLLM batch autotuning failed across all trials"
 
     def _build_model_wrapper(self, gen_kwargs: Dict[str, Any]):
         if EvalVLLM is None:
@@ -109,11 +116,14 @@ class VLLMModelEvaluator(ModelEvaluator):
     ) -> dict[str, float]:
         # Prefer vLLM backend when available, otherwise fall back gracefully
         self.profile_result = None
+        self.profile_skip_reason = None
         self._maybe_autotune_batch_size()
         gen_kwargs = self.get_gen_kwargs(generation_mode)
 
         gen_kwargs_str, wrapped_model = self._build_model_wrapper(gen_kwargs)
         if wrapped_model is None:
+            if self.profile_skip_reason is None:
+                self.profile_skip_reason = "vLLM package unavailable; using HuggingFace backend"
             return super().evaluate(
                 metrics=metrics,
                 seed=seed,
@@ -157,6 +167,8 @@ class VLLMModelEvaluator(ModelEvaluator):
                 "peak_memory_bytes": self.profile_result.peak_memory_bytes,
                 "peak_memory_gb": self.profile_result.peak_memory_gb,
             }
+        elif self.profile_skip_reason:
+            results["vllm_profile_skip_reason"] = self.profile_skip_reason
 
         self._save_results(results, experiment_name)
         self._save_samples(output.get("samples", {}), seed, experiment_name)
