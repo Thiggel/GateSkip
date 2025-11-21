@@ -60,6 +60,16 @@ class GatedWrapper(nn.Module):
             self.current_token_importance[self.current_validity_mask].detach().flatten()
         )
 
+        # Short-circuit when we explicitly request no skipping. Using
+        # ``-inf`` keeps the subsequent ``<=`` comparison from masking any
+        # tokens even if gate outputs dip below zero.
+        if (
+            not self.config.increasing_threshold
+            and not self.config.randomly_skip
+            and self.config.desired_skip_ratio <= 0.0
+        ):
+            return float("-inf")
+
         if self.config.increasing_threshold:
             sorted_token_importances = torch.sort(all_token_importances.float()).values
 

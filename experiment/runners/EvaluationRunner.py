@@ -162,6 +162,8 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         return results
 
     def p_for_saved_fraction(self, A, N, tol=1e-8):
+        if A <= 0:
+            return 0.0
         lo, hi = 0.0, 1.0          #  p ∈ (0,1)
         while hi - lo > tol:
             mid = (lo + hi) / 2
@@ -259,9 +261,9 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         metrics = self.evaluation_config.evaluation_metrics
         all_results = {}
 
-        # percentages: 0.05, 0.10, …, 1.00
+        # percentages: 0.00 (baseline), 0.05, 0.10, …, 0.60
         for pct in tqdm(
-            [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6],
+            [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6],
             desc="running full eval",
             leave=False,
         ):
