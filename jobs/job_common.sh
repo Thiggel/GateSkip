@@ -91,6 +91,11 @@ run_job() {
       additional_train_args+=(--use-mod --mod-capacity-factor 0.8 --skip-threshold 0.0)
       additional_eval_args+=(--use-mod --mod-capacity-factor 0.8 --skip-threshold 0.0)
       finetune_mode="frozen"
+      if [[ "$mode" == "cot" ]]; then
+        train_load_checkpoint="random-skipping-baseline_cot_1_epoch-checkpoint-epoch=00-val_loss=1.81-v1.ckpt"
+      else
+        train_load_checkpoint="random-skipping-baseline_loglikelihood_1_epoch-checkpoint-epoch=00-val_loss=3.31.ckpt"
+      fi
       ;;
     CALM)
       additional_train_args+=(--use-early-exit --confidence-measure hidden_state)
@@ -228,7 +233,11 @@ run_job() {
       max_epochs=3
       finetune_mode="frozen"
       eval_batch_size=8
-      train_load_checkpoint="random-skipping-baseline_${mode}"
+      if [[ "$mode" == "cot" ]]; then
+        train_load_checkpoint="random-skipping-baseline_cot_1_epoch-checkpoint-epoch=00-val_loss=1.81-v1.ckpt"
+      else
+        train_load_checkpoint="random-skipping-baseline_loglikelihood_1_epoch-checkpoint-epoch=00-val_loss=3.31.ckpt"
+      fi
       additional_train_args+=(--use-mlp-gate --max-hours 9)
       additional_eval_args+=(--use-mlp-gate --max-hours 3)
       ;;
@@ -244,7 +253,11 @@ run_job() {
       max_epochs=3
       finetune_mode="frozen"
       eval_batch_size=8
-      train_load_checkpoint="random-skipping-baseline_${mode}"
+      if [[ "$mode" == "cot" ]]; then
+        train_load_checkpoint="random-skipping-baseline_cot_1_epoch-checkpoint-epoch=00-val_loss=1.81-v1.ckpt"
+      else
+        train_load_checkpoint="random-skipping-baseline_loglikelihood_1_epoch-checkpoint-epoch=00-val_loss=3.31.ckpt"
+      fi
       additional_train_args+=(--use-mlp-gate --no-one-gate-per-layer --max-hours 9)
       additional_eval_args+=(--use-mlp-gate --no-one-gate-per-layer --max-hours 3)
       ;;
@@ -275,7 +288,11 @@ run_job() {
       max_epochs=5
       finetune_mode="frozen"
       eval_batch_size=8
-      train_load_checkpoint="random-skipping-baseline_${mode}"
+      if [[ "$mode" == "cot" ]]; then
+        train_load_checkpoint="random-skipping-baseline_cot_1_epoch-checkpoint-epoch=00-val_loss=1.81-v1.ckpt"
+      else
+        train_load_checkpoint="random-skipping-baseline_loglikelihood_1_epoch-checkpoint-epoch=00-val_loss=3.31.ckpt"
+      fi
       additional_train_args+=(--max-hours 9)
       additional_eval_args+=(--max-hours 3)
       ;;
