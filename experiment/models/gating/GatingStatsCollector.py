@@ -1,5 +1,7 @@
+import json
 import re
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict, Generator
 
 import matplotlib.pyplot as plt
@@ -179,6 +181,21 @@ class GatingStatsCollector:
 
         return base_masks
 
+    def _summarize_tensor_bucket(self, bucket: list[torch.Tensor]) -> Dict[str, float]:
+        if not bucket:
+            return {}
+
+        values = torch.cat(bucket).float()
+        quantiles = torch.quantile(values, torch.tensor([0.1, 0.5, 0.9]))
+        return {
+            "count": int(values.numel()),
+            "mean": float(values.mean()),
+            "std": float(values.std(unbiased=False)),
+            "p10": float(quantiles[0]),
+            "p50": float(quantiles[1]),
+            "p90": float(quantiles[2]),
+        }
+
     def _collect_token_type_gate_values(
         self,
         module_name: str,
@@ -237,6 +254,38 @@ class GatingStatsCollector:
                     self._collect_token_type_gate_values(
                         name, gate_value.detach().cpu(), token_type_masks, validity_mask
                     )
+
+    def summarize_gate_values_by_type(self) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """Return summary statistics for per-layer token-type gate values."""
+
+        summaries: Dict[str, Dict[str, Dict[str, float]]] = {}
+
+        for layer, token_buckets in self.layer_gate_values_by_type.items():
+            layer_summary: Dict[str, Dict[str, float]] = {}
+            for token_type, values in token_buckets.items():
+                stats = self._summarize_tensor_bucket(values)
+                if stats:
+                    layer_summary[token_type] = stats
+            if layer_summary:
+                summaries[layer] = layer_summary
+
+        return summaries
+
+    def save_gate_type_statistics(self, file_path: str) -> None:
+        """Persist per-layer token-type gate summaries to a JSON file."""
+
+        summaries = self.summarize_gate_values_by_type()
+        if not summaries:
+            return
+
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "w") as f:
+            json.dump(summaries, f, indent=2)
+
+    def reset_gate_type_statistics(self) -> None:
+        """Clear collected gate statistics for token-type analyses."""
+
+        self.layer_gate_values_by_type = {}
 
             if layer_importances and input_ids is not None and validity_mask is not None:
                 stacked = torch.stack(layer_importances)
