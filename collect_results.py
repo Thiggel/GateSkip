@@ -131,8 +131,18 @@ def interpolate_tensor(
         if mask.sum() < 2:
             per_seed.append(np.full_like(targets, np.nan, dtype=float))
             continue
+        valid_values = values[mask]
+        valid_compute = compute[mask]
+        edge_left = valid_values[0]
+        edge_right = valid_values[-1]
         per_seed.append(
-            np.interp(targets, compute[mask], values[mask], left=np.nan, right=np.nan)
+            np.interp(
+                targets,
+                valid_compute,
+                valid_values,
+                left=edge_left,
+                right=edge_right,
+            )
         )
     return np.array(per_seed, dtype=float)
 
