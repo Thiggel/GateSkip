@@ -142,7 +142,7 @@ class DefaultLightningModule(LightningModule, HasLayers):
                 )
 
             if not self.training:
-                self.gating_stats_collector.collect(self.model)
+                self.gating_stats_collector.collect(self.model, self.tokenizer)
         elif self.config.use_mod:
             percent_skipped = []
             for module in self.model.mod.wrapped_modules.values():
