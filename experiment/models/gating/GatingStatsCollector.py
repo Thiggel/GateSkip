@@ -1,11 +1,14 @@
-import torch
-from torch import nn
+import json
+import re
 from contextlib import contextmanager
-import numpy as np
+from pathlib import Path
+from typing import Any, Dict, Generator
+
 import matplotlib.pyplot as plt
-from scipy import stats
+import numpy as np
+import torch
 import wandb
-from typing import Dict, Any, Generator, Tuple
+from torch import nn
 
 
 class GatingStatsCollector:
@@ -16,20 +19,222 @@ class GatingStatsCollector:
         # times each token occurred.
         self.token_importance_sum: Dict[int, float] = {}
         self.token_importance_count: Dict[int, int] = {}
+        # Track gate values bucketed by token type (e.g., think-tag span, POS-ish bucket)
+        self.layer_gate_values_by_type: Dict[str, Dict[str, list[torch.Tensor]]] = {}
+
+        self._prepositions = {
+            "about",
+            "above",
+            "across",
+            "after",
+            "against",
+            "along",
+            "among",
+            "around",
+            "at",
+            "before",
+            "behind",
+            "below",
+            "beneath",
+            "beside",
+            "besides",
+            "between",
+            "beyond",
+            "but",
+            "by",
+            "concerning",
+            "considering",
+            "despite",
+            "down",
+            "during",
+            "except",
+            "following",
+            "for",
+            "from",
+            "in",
+            "including",
+            "inside",
+            "into",
+            "like",
+            "near",
+            "of",
+            "off",
+            "on",
+            "onto",
+            "opposite",
+            "out",
+            "outside",
+            "over",
+            "past",
+            "regarding",
+            "round",
+            "since",
+            "through",
+            "throughout",
+            "till",
+            "to",
+            "toward",
+            "towards",
+            "under",
+            "underneath",
+            "unlike",
+            "until",
+            "up",
+            "upon",
+            "versus",
+            "via",
+            "with",
+            "within",
+            "without",
+        }
+
+        self._common_verbs = {
+            "be",
+            "have",
+            "do",
+            "say",
+            "go",
+            "get",
+            "make",
+            "know",
+            "think",
+            "take",
+            "see",
+            "come",
+            "want",
+            "look",
+            "use",
+            "find",
+            "give",
+            "tell",
+            "work",
+            "call",
+        }
         
-    def collect(self, model):
+    def _normalize_token_piece(self, token: str) -> str:
+        cleaned = token.strip()
+        cleaned = cleaned.lstrip("▁")  # sentencepiece spacing marker
+        return cleaned.lower()
+
+    def _word_category(self, token: str) -> str | None:
+        alnum_token = re.sub(r"[^a-zA-Z0-9]", "", token)
+        if alnum_token == "":
+            return None
+
+        if any(char.isdigit() for char in alnum_token):
+            return "numbers"
+
+        lowered = alnum_token.lower()
+        if lowered in self._prepositions:
+            return "prepositions"
+
+        if lowered in self._common_verbs or lowered.endswith("ing") or lowered.endswith("ed"):
+            return "verbs"
+
+        if lowered.isalpha():
+            return "nouns"
+
+        return None
+
+    def _get_token_type_masks(
+        self, input_ids: torch.Tensor, tokenizer
+    ) -> Dict[str, torch.Tensor]:
+        if tokenizer is None:
+            return {}
+
+        flat_tokens = tokenizer.convert_ids_to_tokens(
+            input_ids.view(-1).tolist(), skip_special_tokens=False
+        )
+
+        base_masks: Dict[str, torch.Tensor] = {
+            "inside_think": torch.zeros_like(input_ids, dtype=torch.bool),
+            "outside_think": torch.zeros_like(input_ids, dtype=torch.bool),
+            "numbers": torch.zeros_like(input_ids, dtype=torch.bool),
+            "prepositions": torch.zeros_like(input_ids, dtype=torch.bool),
+            "verbs": torch.zeros_like(input_ids, dtype=torch.bool),
+            "nouns": torch.zeros_like(input_ids, dtype=torch.bool),
+        }
+
+        inside_think = False
+        for idx, token in enumerate(flat_tokens):
+            normalized = self._normalize_token_piece(token)
+
+            contains_think_start = "<think>" in normalized
+            contains_think_end = "</think>" in normalized
+
+            is_inside_now = inside_think or contains_think_start
+            view = tuple(np.unravel_index(idx, input_ids.shape))
+
+            if is_inside_now:
+                base_masks["inside_think"][view] = True
+            else:
+                base_masks["outside_think"][view] = True
+
+            category = self._word_category(normalized)
+            if category in base_masks:
+                base_masks[category][view] = True
+
+            if contains_think_end:
+                inside_think = False
+            elif contains_think_start:
+                inside_think = True
+
+        return base_masks
+
+    def _summarize_tensor_bucket(self, bucket: list[torch.Tensor]) -> Dict[str, float]:
+        if not bucket:
+            return {}
+
+        values = torch.cat(bucket).float()
+        quantiles = torch.quantile(values, torch.tensor([0.1, 0.5, 0.9]))
+        return {
+            "count": int(values.numel()),
+            "mean": float(values.mean()),
+            "std": float(values.std(unbiased=False)),
+            "p10": float(quantiles[0]),
+            "p50": float(quantiles[1]),
+            "p90": float(quantiles[2]),
+        }
+
+    def _collect_token_type_gate_values(
+        self,
+        module_name: str,
+        gate_value: torch.Tensor,
+        token_type_masks: Dict[str, torch.Tensor],
+        validity_mask: torch.Tensor,
+    ) -> None:
+        if not token_type_masks:
+            return
+
+        token_level_gate = gate_value.mean(dim=-1)
+
+        for token_type, mask in token_type_masks.items():
+            combined_mask = mask & validity_mask
+            if not combined_mask.any():
+                continue
+
+            masked_values = token_level_gate.masked_select(combined_mask)
+            layer_bucket = self.layer_gate_values_by_type.setdefault(module_name, {})
+            layer_bucket.setdefault(token_type, []).append(masked_values.detach().cpu())
+
+    def collect(self, model, tokenizer=None):
         """Collect gate values and token importances from the current forward pass"""
         if hasattr(model, "gating"):
             layer_importances = []
             input_ids = None
             validity_mask = None
+            token_type_masks: Dict[str, torch.Tensor] = {}
+            effective_tokenizer = tokenizer or getattr(model, "tokenizer", None)
+            layer_gate_means: list[tuple[str, torch.Tensor]] = []
 
             for name, module in model.gating.wrapped_modules.items():
                 if module.current_gate_value is not None:
-                    gate_value = module.current_gate_value.mean(dim=-1).detach().cpu()
+                    gate_value = module.current_gate_value
+                    gate_value_mean = gate_value.mean(dim=-1).detach().cpu()
                     if name not in self.layer_gate_values:
                         self.layer_gate_values[name] = []
-                    self.layer_gate_values[name].append(gate_value)
+                    self.layer_gate_values[name].append(gate_value_mean)
+                    layer_gate_means.append((name, gate_value))
 
                 if (
                     module.current_token_importance is not None
@@ -40,6 +245,47 @@ class GatingStatsCollector:
                     if input_ids is None:
                         input_ids = module.current_input_ids.detach().cpu()
                         validity_mask = module.current_validity_mask.detach().cpu()
+                        token_type_masks = self._get_token_type_masks(
+                            input_ids, effective_tokenizer
+                        )
+
+            if token_type_masks and validity_mask is not None:
+                for name, gate_value in layer_gate_means:
+                    self._collect_token_type_gate_values(
+                        name, gate_value.detach().cpu(), token_type_masks, validity_mask
+                    )
+
+    def summarize_gate_values_by_type(self) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """Return summary statistics for per-layer token-type gate values."""
+
+        summaries: Dict[str, Dict[str, Dict[str, float]]] = {}
+
+        for layer, token_buckets in self.layer_gate_values_by_type.items():
+            layer_summary: Dict[str, Dict[str, float]] = {}
+            for token_type, values in token_buckets.items():
+                stats = self._summarize_tensor_bucket(values)
+                if stats:
+                    layer_summary[token_type] = stats
+            if layer_summary:
+                summaries[layer] = layer_summary
+
+        return summaries
+
+    def save_gate_type_statistics(self, file_path: str) -> None:
+        """Persist per-layer token-type gate summaries to a JSON file."""
+
+        summaries = self.summarize_gate_values_by_type()
+        if not summaries:
+            return
+
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "w") as f:
+            json.dump(summaries, f, indent=2)
+
+    def reset_gate_type_statistics(self) -> None:
+        """Clear collected gate statistics for token-type analyses."""
+
+        self.layer_gate_values_by_type = {}
 
             if layer_importances and input_ids is not None and validity_mask is not None:
                 stacked = torch.stack(layer_importances)

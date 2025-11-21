@@ -295,6 +295,21 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
                 )
                 model.gating_stats_collector.reset_token_stats()
 
+            if self.evaluation_config.save_token_type_gate_stats:
+                output_dir = os.path.join(
+                    os.environ.get("BASE_CACHE_DIR", ""),
+                    "gate_type_stats",
+                )
+                os.makedirs(output_dir, exist_ok=True)
+                filename = (
+                    f"{self.experiment_config.experiment_name}_"
+                    f"{int(pct * 100)}pct_gate_types.json"
+                )
+                model.gating_stats_collector.save_gate_type_statistics(
+                    os.path.join(output_dir, filename)
+                )
+                model.gating_stats_collector.reset_gate_type_statistics()
+
             # Save the results to a file
             full_path = get_results_file_path(
                 self.experiment_config.experiment_name, seed

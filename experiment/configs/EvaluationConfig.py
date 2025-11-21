@@ -67,3 +67,10 @@ class EvaluationConfig(BaseModel):
         False,
         description="Save histogram of token importance during evaluation",
     )
+    save_token_type_gate_stats: bool = Field(
+        False,
+        description=(
+            "Save per-layer gate activation summaries bucketed by token type (think tags,"
+            " parts of speech, numbers)."
+        ),
+    )
