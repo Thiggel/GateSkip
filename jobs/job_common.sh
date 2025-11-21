@@ -184,6 +184,9 @@ run_job() {
       ;;
     GateSkip-separate-vector)
       add_gate_defaults
+      if [[ "$mode" == "cot" ]]; then
+        additional_eval_args+=(--save-token-type-gate-stats)
+      fi
       ;;
     GateSkip-separate-scalar)
       add_gate_defaults
