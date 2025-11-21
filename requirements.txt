@@ -24,3 +24,5 @@ torchvision==0.23.*
 tqdm
 transformers>=4.44
 wandb
+plotly
+pandas

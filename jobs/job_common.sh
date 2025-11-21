@@ -4,7 +4,7 @@ module load cuda/12.1.1 || true
 
 set -euo pipefail
 
-DEFAULT_SEEDS=(1 2 3 4 5)
+DEFAULT_SEEDS=(1 2 3)
 
 run_experiment() {
   srun "${APPTAINER_RUN[@]}" "${PYTHON_BIN}" -m experiment "$@"

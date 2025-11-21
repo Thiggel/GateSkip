@@ -120,7 +120,7 @@ class VLLMBatchSizer:
             return None
 
         candidates = [
-            max(1, min(self.max_batch, 2 ** i)) for i in range(5, 5 + self.trials)
+            2*i for i in range(1, 32)
         ]
 
         best: Optional[ProfileResult] = None
@@ -130,4 +130,6 @@ class VLLMBatchSizer:
                 continue
             if best is None or result.tokens_per_s > best.tokens_per_s:
                 best = result
+
+        assert best is not None
         return best
