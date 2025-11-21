@@ -255,6 +255,23 @@ class GatingStatsCollector:
                         name, gate_value.detach().cpu(), token_type_masks, validity_mask
                     )
 
+            if layer_importances and input_ids is not None and validity_mask is not None:
+                stacked = torch.stack(layer_importances)
+                avg_importance = stacked.mean(dim=0)
+
+                for tok, imp, valid in zip(
+                    input_ids.flatten(), avg_importance.flatten(), validity_mask.flatten()
+                ):
+                    if valid:
+                        tok_id = int(tok)
+                        imp_val = float(imp)
+                        self.token_importance_sum[tok_id] = (
+                            self.token_importance_sum.get(tok_id, 0.0) + imp_val
+                        )
+                        self.token_importance_count[tok_id] = (
+                            self.token_importance_count.get(tok_id, 0) + 1
+                        )
+
     def summarize_gate_values_by_type(self) -> Dict[str, Dict[str, Dict[str, float]]]:
         """Return summary statistics for per-layer token-type gate values."""
 
@@ -286,23 +303,6 @@ class GatingStatsCollector:
         """Clear collected gate statistics for token-type analyses."""
 
         self.layer_gate_values_by_type = {}
-
-            if layer_importances and input_ids is not None and validity_mask is not None:
-                stacked = torch.stack(layer_importances)
-                avg_importance = stacked.mean(dim=0)
-
-                for tok, imp, valid in zip(
-                    input_ids.flatten(), avg_importance.flatten(), validity_mask.flatten()
-                ):
-                    if valid:
-                        tok_id = int(tok)
-                        imp_val = float(imp)
-                        self.token_importance_sum[tok_id] = (
-                            self.token_importance_sum.get(tok_id, 0.0) + imp_val
-                        )
-                        self.token_importance_count[tok_id] = (
-                            self.token_importance_count.get(tok_id, 0) + 1
-                        )
     
     def get_distributions(self):
         """Return concatenated gate values for each layer"""
