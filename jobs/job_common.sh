@@ -103,6 +103,12 @@ run_job() {
       additional_eval_args+=(--use-early-exit --confidence-measure hidden_state)
       additional_eval_invocations+=("--confidence-measure softmax")
       ;;
+    CALM-softmax)
+      load_checkpoint="CALM_${mode}"
+      save_checkpoint="${load_checkpoint}"
+      additional_train_args+=(--use-early-exit --confidence-measure softmax)
+      additional_eval_args+=(--use-early-exit --confidence-measure softmax)
+      ;;
     FREE)
       additional_train_args+=(
         --use-early-exit
@@ -121,6 +127,26 @@ run_job() {
         --confidence-measure hidden_state
       )
       additional_eval_invocations+=("--confidence-measure softmax")
+      ;;
+    FREE-softmax)
+      load_checkpoint="FREE_${mode}"
+      save_checkpoint="${load_checkpoint}"
+      additional_train_args+=(
+        --use-early-exit
+        --early-exit-method free
+        --use-free-distillation
+        --use-free-speculative-decoding
+        --free-shallow-layers 0 6
+        --confidence-measure softmax
+      )
+      additional_eval_args+=(
+        --use-early-exit
+        --early-exit-method free
+        --use-free-distillation
+        --use-free-speculative-decoding
+        --free-shallow-layers 0 6
+        --confidence-measure softmax
+      )
       ;;
     LayerSkip)
       eval_batch_size=32

@@ -1,0 +1,15 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=CALM-softmax
+#SBATCH --output=job_logs/CALM-softmax/loglikelihood_%j.txt
+#SBATCH --partition=a100
+#SBATCH --gres=gpu:a100:1 -C a100_80
+#SBATCH --time=23:00:00
+#SBATCH --nodes=1
+
+cd "$HOME/GateSkip"
+
+. jobs/environment.sh
+. jobs/job_common.sh
+
+run_job "CALM-softmax" "loglikelihood" "CALM-softmax"
