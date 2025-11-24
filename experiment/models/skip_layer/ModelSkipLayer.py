@@ -38,13 +38,15 @@ class ModelSkipLayer(nn.Module):
         if not self.wrapped_modules:
             return torch.tensor(0.0, dtype=dtype)
 
-        loss = torch.tensor(0.0, dtype=dtype)
+        device = next(iter(self.wrapped_modules.values())).gate.weight.device
+        loss = torch.tensor(0.0, dtype=dtype, device=device)
         num = 0
         target_ratio = 1.0 - self.config.desired_skip_ratio
+        target_ratio_tensor = torch.tensor(target_ratio, dtype=dtype, device=device)
         for module in self.wrapped_modules.values():
             if module.current_gate is not None:
                 r_i = module.current_gate[..., 1].mean()
-                loss += (r_i - target_ratio) ** 2
+                loss += (r_i - target_ratio_tensor) ** 2
                 num += 1
         if num > 0:
             loss /= num
