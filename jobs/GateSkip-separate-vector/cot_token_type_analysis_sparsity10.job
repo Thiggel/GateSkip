@@ -1,0 +1,18 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=GateSkip-token-type-s10
+#SBATCH --output=job_logs/GateSkip-separate-vector/cot_token_type_s10_%j.txt
+#SBATCH --partition=a100
+#SBATCH --gres=gpu:a100:1 -C a100_80
+#SBATCH --time=23:00:00
+#SBATCH --nodes=1
+
+cd "$HOME/GateSkip"
+
+. jobs/environment.sh
+. jobs/job_common.sh
+
+# Use a higher sparsity loss weight when training for token-type gate analysis.
+export SPARSITY_LOSS_WEIGHT=10
+
+run_job "GateSkip-separate-vector" "cot" "GateSkip-token-type-sparsity10"
