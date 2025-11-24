@@ -98,8 +98,6 @@ class ModelEvaluator:
         # return results
         ### /TEST
 
-        self.eval_batch_size = 64
-
         wrapped_model = HFLM(
             pretrained=self.model,
             tokenizer=self.tokenizer,
