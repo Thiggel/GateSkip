@@ -1,4 +1,4 @@
-task: wmt-gen
+task: wmt_gen
 dataset_path: wmt16
 dataset_name: ro-en
 training_split: train
