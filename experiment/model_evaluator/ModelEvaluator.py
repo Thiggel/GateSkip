@@ -9,6 +9,7 @@ import torch
 from transformers import PreTrainedTokenizer
 from typing import Optional
 import os
+from experiment.utils.results import get_results_file_path
 
 
 class ModelEvaluator:
@@ -137,16 +138,15 @@ class ModelEvaluator:
 
         # output["results"]["samples"] = samples
 
-        self._save_results(output["results"], experiment_name)
+        self._save_results(output["results"], experiment_name, seed)
         self._save_samples(output["samples"], seed, experiment_name)
 
         return output["results"]
 
-    def _save_results(self, results: dict, experiment_name: str):
-        output_dir = Path(os.getenv("BASE_CACHE_DIR") or "") / "evaluation_results"
-        output_dir.mkdir(exist_ok=True)
+    def _save_results(self, results: dict, experiment_name: str, seed: int):
+        results_path = get_results_file_path(experiment_name, seed)
+        results_path.parent.mkdir(parents=True, exist_ok=True)
 
-        results_path = output_dir / f"{experiment_name}.json"
         with results_path.open("w") as f:
             json.dump(results, f, indent=2)
 
