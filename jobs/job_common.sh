@@ -104,6 +104,8 @@ run_job() {
       additional_eval_invocations+=("--confidence-measure softmax")
       ;;
     CALM-softmax)
+      load_checkpoint="CALM_${mode}"
+      save_checkpoint="${load_checkpoint}"
       additional_train_args+=(--use-early-exit --confidence-measure softmax)
       additional_eval_args+=(--use-early-exit --confidence-measure softmax)
       ;;
@@ -127,6 +129,8 @@ run_job() {
       additional_eval_invocations+=("--confidence-measure softmax")
       ;;
     FREE-softmax)
+      load_checkpoint="FREE_${mode}"
+      save_checkpoint="${load_checkpoint}"
       additional_train_args+=(
         --use-early-exit
         --early-exit-method free
