@@ -248,6 +248,7 @@ class EarlyExitWrapper(nn.Module):
                 self.percent_skipped = self.controller.exit_mask.float().mean().item()
                 return self.controller.exit_mask
         elif self.config.early_exit_method == EarlyExitMethod.LAYERSKIP:
+            print('hellooo', confidence.shape)
             if self.layer_idx < self.free_shallow_last:
                 return torch.zeros_like(confidence, dtype=torch.bool)
             elif self.layer_idx == self.free_shallow_last:

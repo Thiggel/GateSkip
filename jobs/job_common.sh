@@ -149,7 +149,9 @@ run_job() {
       )
       ;;
     LayerSkip)
-      eval_batch_size=32
+      eval_batch_size=1
+      seq_length_train_cot=512
+      seq_length_train_loglik=512
       additional_train_args+=(
         --use-early-exit
         --early-exit-method layerskip
@@ -358,7 +360,9 @@ run_job() {
       model_name="meta-llama/Llama-3.2-3B"
       eval_batch_size=32
       additional_eval_args+=(--skip-layers)
-      seq_length_train=256
+      seq_length_train=128
+      seq_length_train_cot=128
+      seq_length_train_loglik=128
       ;;
     GateSkip-Llama-8b)
       add_gate_defaults
@@ -366,19 +370,26 @@ run_job() {
       eval_batch_size=1
       additional_eval_args+=(--skip-layers)
       additional_train_args+=(--max-hours 8)
-      seq_length_train=256
+      seq_length_train=128
+      seq_length_train_cot=128
+      seq_length_train_loglik=128
       ;;
     GateSkip-Gemma-2b)
       add_gate_defaults
       model_name="google/gemma-2-2b"
       eval_batch_size=32
+      seq_length_train=128
+      seq_length_train_cot=128
+      seq_length_train_loglik=128
       additional_eval_args+=(--skip-layers)
       ;;
     GateSkip-Llama-3b-Instruct)
       add_gate_defaults
       model_name="meta-llama/Llama-3.2-3B-Instruct"
       eval_batch_size=32
-      seq_length_train=256
+      seq_length_train=128
+      seq_length_train_cot=128
+      seq_length_train_loglik=128
       additional_eval_args+=(--skip-layers)
       ;;
     *)
