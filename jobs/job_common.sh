@@ -18,10 +18,11 @@ add_seed_args() {
 }
 
 add_gate_defaults() {
+  local sparsity_loss_weight="${SPARSITY_LOSS_WEIGHT:-1.0}"
   additional_train_args+=(
     --use-gating
     --entropy-loss-weight 0.0
-    --sparsity-loss-weight 1.0
+    --sparsity-loss-weight "$sparsity_loss_weight"
     --skip-modules
     --increasing-threshold
     --start-thr-percentile 0.0
