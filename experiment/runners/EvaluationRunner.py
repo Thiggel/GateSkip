@@ -153,7 +153,7 @@ class EvaluationRunner(Runner, HasTokenizer, HasModel):
         results = evaluator_full.evaluate(
            metrics=metrics,
            seed=seed,
-           experiment_name=f"{self.experiment_config.experiment_name}_{seed}",
+           experiment_name=self.experiment_config.experiment_name,
            generation_mode=self.model_config.generation_mode,
            limit=self.evaluation_config.limit,
         )

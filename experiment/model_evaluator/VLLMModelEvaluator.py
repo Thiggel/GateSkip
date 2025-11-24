@@ -124,12 +124,20 @@ class VLLMModelEvaluator(ModelEvaluator):
         if wrapped_model is None:
             if self.profile_skip_reason is None:
                 self.profile_skip_reason = "vLLM package unavailable; using HuggingFace backend"
-            return super().evaluate(
+            results = super().evaluate(
                 metrics=metrics,
                 seed=seed,
                 experiment_name=experiment_name,
                 generation_mode=generation_mode,
                 limit=limit,
+            )
+            if self.profile_skip_reason:
+                results = dict(results)
+                results["vllm_profile_skip_reason"] = self.profile_skip_reason
+                self._save_results(results, experiment_name, seed)
+
+            raise RuntimeError(
+                "vLLM backend was requested but is unavailable; see vllm_profile_skip_reason in results."
             )
 
         from lm_eval.tasks import TaskManager
@@ -170,7 +178,7 @@ class VLLMModelEvaluator(ModelEvaluator):
         elif self.profile_skip_reason:
             results["vllm_profile_skip_reason"] = self.profile_skip_reason
 
-        self._save_results(results, experiment_name)
+        self._save_results(results, experiment_name, seed)
         self._save_samples(output.get("samples", {}), seed, experiment_name)
 
         return results
