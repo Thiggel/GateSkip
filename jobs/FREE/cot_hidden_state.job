@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
-#SBATCH --job-name=FREE
-#SBATCH --output=job_logs/FREE/loglikelihood_%j.txt
+#SBATCH --job-name=FREE-hidden_state
+#SBATCH --output=job_logs/FREE-hidden_state/cot_%j.txt
 #SBATCH --partition=a100
 #SBATCH --gres=gpu:a100:1 -C a100_80
 #SBATCH --time=23:00:00
@@ -12,4 +12,4 @@ cd "$HOME/GateSkip"
 . jobs/environment.sh
 . jobs/job_common.sh
 
-run_job "FREE" "loglikelihood" "FREE"
+run_job "FREE" "cot" "FREE-hidden_state"
