@@ -101,11 +101,11 @@ run_job() {
     CALM)
       additional_train_args+=(--use-early-exit --confidence-measure hidden_state)
       additional_eval_args+=(--use-early-exit --confidence-measure hidden_state)
-      additional_eval_invocations+=("--confidence-measure softmax")
       ;;
     CALM-softmax)
       load_checkpoint="CALM_${mode}"
       save_checkpoint="${load_checkpoint}"
+      eval_batch_size=16
       additional_train_args+=(--use-early-exit --confidence-measure softmax)
       additional_eval_args+=(--use-early-exit --confidence-measure softmax)
       ;;
@@ -126,11 +126,11 @@ run_job() {
         --free-shallow-layers 0 6
         --confidence-measure hidden_state
       )
-      additional_eval_invocations+=("--confidence-measure softmax")
       ;;
     FREE-softmax)
       load_checkpoint="FREE_${mode}"
       save_checkpoint="${load_checkpoint}"
+      eval_batch_size=16
       additional_train_args+=(
         --use-early-exit
         --early-exit-method free
@@ -149,7 +149,7 @@ run_job() {
       )
       ;;
     LayerSkip)
-      eval_batch_size=1
+      eval_batch_size=32
       seq_length_train_cot=512
       seq_length_train_loglik=512
       additional_train_args+=(
@@ -367,7 +367,7 @@ run_job() {
     GateSkip-Llama-8b)
       add_gate_defaults
       model_name="meta-llama/Llama-3.1-8B"
-      eval_batch_size=1
+      eval_batch_size=16
       additional_eval_args+=(--skip-layers)
       additional_train_args+=(--max-hours 8)
       seq_length_train=128

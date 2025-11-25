@@ -26,3 +26,4 @@ transformers>=4.44
 wandb
 plotly
 pandas
+vllm
