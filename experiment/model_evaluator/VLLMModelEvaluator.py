@@ -10,10 +10,18 @@ from experiment.configs import DataConfig, EvaluationConfig, ModelConfig
 from experiment.utils.vllm_profiler import ProfileResult, VLLMBatchSizer
 from .ModelEvaluator import ModelEvaluator
 
-try:  # Optional dependency
-    from lm_eval.models.vllm import VLLM as EvalVLLM
-except Exception:  # pragma: no cover - optional import
-    EvalVLLM = None
+# Optional dependency: lm-eval renamed the vLLM backend in 0.4.8 to
+# `lm_eval.models.vllm_causallms`. Support both paths and keep the import
+# error around for diagnostics.
+EvalVLLM = None
+VLLM_IMPORT_ERROR: Optional[Exception] = None
+for _module in ("lm_eval.models.vllm", "lm_eval.models.vllm_causallms"):
+    try:  # pragma: no cover - optional import
+        EvalVLLM = __import__(_module, fromlist=["VLLM"]).VLLM
+        break
+    except Exception as exc:  # pragma: no cover - optional import
+        VLLM_IMPORT_ERROR = exc
+        EvalVLLM = None
 
 
 class VLLMModelEvaluator(ModelEvaluator):
@@ -93,6 +101,10 @@ class VLLMModelEvaluator(ModelEvaluator):
 
     def _build_model_wrapper(self, gen_kwargs: Dict[str, Any]):
         if EvalVLLM is None:
+            reason = "vLLM backend import failed"
+            if VLLM_IMPORT_ERROR is not None:
+                reason = f"{reason}: {VLLM_IMPORT_ERROR}"
+            self.profile_skip_reason = reason
             return super().dict_to_str(gen_kwargs), None
 
         wrapped_model = EvalVLLM(
@@ -102,7 +114,7 @@ class VLLMModelEvaluator(ModelEvaluator):
             max_model_len=self.data_config.seq_length,
             tensor_parallel_size=max(torch.cuda.device_count(), 1),
             trust_remote_code=True,
-            gpu_memory_utilization=0.95,
+            gpu_memory_utilization=0.4,
         )
         return self.dict_to_str(gen_kwargs), wrapped_model
 
@@ -123,7 +135,7 @@ class VLLMModelEvaluator(ModelEvaluator):
         gen_kwargs_str, wrapped_model = self._build_model_wrapper(gen_kwargs)
         if wrapped_model is None:
             if self.profile_skip_reason is None:
-                self.profile_skip_reason = "vLLM package unavailable; using HuggingFace backend"
+                self.profile_skip_reason = "vLLM backend unavailable; using HuggingFace backend"
             results = super().evaluate(
                 metrics=metrics,
                 seed=seed,
@@ -159,7 +171,7 @@ class VLLMModelEvaluator(ModelEvaluator):
             log_samples=True,
             gen_kwargs=gen_kwargs_str,
             task_manager=tm,
-            limit=limit,
+            limit=100,
         )
 
         results = output.get("results", {})

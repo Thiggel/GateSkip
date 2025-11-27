@@ -127,7 +127,7 @@ class ModelEvaluator:
             log_samples=True,
             gen_kwargs=gen_kwargs_str,
             task_manager=tm,
-            limit=500,
+            limit=100,
         )
 
         # samples = {}

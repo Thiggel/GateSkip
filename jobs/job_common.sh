@@ -99,6 +99,7 @@ run_job() {
       fi
       ;;
     CALM)
+      eval_batch_size=16
       additional_train_args+=(--use-early-exit --confidence-measure hidden_state)
       additional_eval_args+=(--use-early-exit --confidence-measure hidden_state)
       ;;
@@ -110,6 +111,7 @@ run_job() {
       additional_eval_args+=(--use-early-exit --confidence-measure softmax)
       ;;
     FREE)
+      eval_batch_size=16
       additional_train_args+=(
         --use-early-exit
         --early-exit-method free
@@ -149,7 +151,7 @@ run_job() {
       )
       ;;
     LayerSkip)
-      eval_batch_size=32
+      eval_batch_size=16
       seq_length_train_cot=512
       seq_length_train_loglik=512
       additional_train_args+=(
@@ -166,11 +168,30 @@ run_job() {
       )
       ;;
     SkipLayer)
+      eval_batch_size=16
       additional_train_args+=(--use-skip-layer --skip-threshold 0.0)
       additional_eval_args+=(--use-skip-layer --skip-threshold 0.0)
       ;;
     random-skipping-baseline)
       add_gate_defaults
+      additional_train_args+=(
+        --no-one-gate-per-layer
+        --randomly-skip
+        --no-actually-gate
+      )
+      additional_eval_args+=(
+        --no-one-gate-per-layer
+        --randomly-skip
+        --no-actually-gate
+      )
+      ;;
+    random-skipping-baseline-Llama-3b-Instruct)
+      add_gate_defaults
+      model_name="meta-llama/Llama-3.2-3B-Instruct"
+      eval_batch_size=32
+      seq_length_train=128
+      seq_length_train_cot=128
+      seq_length_train_loglik=128
       additional_train_args+=(
         --no-one-gate-per-layer
         --randomly-skip
