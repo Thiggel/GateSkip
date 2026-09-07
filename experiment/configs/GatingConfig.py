@@ -123,6 +123,23 @@ class GatingConfig:
         description="Block size used by the Triton GateSkip kernel when enabled.",
     )
 
+    physically_skip: bool = Field(
+        False,
+        description=(
+            "Physically remove skipped tokens from the token dimension so the"
+            " GEMMs shrink, instead of masking outputs after dense compute."
+            " Mathematically equivalent to the masking path; the difference is"
+            " that the arithmetic is actually avoided."
+        ),
+    )
+    physical_skip_min_density: float = Field(
+        0.9,
+        description=(
+            "Fall back to the dense path when the kept fraction exceeds this."
+            " Below ~10% skipping, gather/scatter costs more than it saves."
+        ),
+    )
+
     gate_attention: bool = Field(True, description="Whether to gate attention outputs")
     gate_mlp: bool = Field(True, description="Whether to gate MLP outputs")
     generation_mode: GenerationMode = Field(

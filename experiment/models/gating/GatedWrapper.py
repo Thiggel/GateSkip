@@ -5,6 +5,11 @@ from typing import Any, Optional, Union
 from experiment.configs.ModelConfig import ModelConfig
 from experiment.configs.GatingConfig import GatingMode
 from experiment.models.gating.vllm_kernel import gate_skip_kernel
+from experiment.models.gating.physical_skip import (
+    attention_is_compactable,
+    compact_llama_attention,
+    compact_token_module,
+)
 from experiment.utils.threshold_finder import ThresholdFinder
 
 
@@ -215,6 +220,61 @@ class GatedWrapper(nn.Module):
 
                 return module_output[1]
 
+    def maybe_physically_skip(
+        self,
+        hidden_states: torch.Tensor,
+        skip_mask: torch.Tensor,
+        gate_value: torch.Tensor,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        """Compute only the kept tokens, or return ``None`` to stay dense.
+
+        Returns the module output in the same shape the masked path produces,
+        so callers cannot tell the two apart except by their cost.
+        """
+        if not self.config.physically_skip:
+            return None
+
+        keep_mask = ~skip_mask.squeeze(-1)
+        density = keep_mask.float().mean().item()
+        if density > self.config.physical_skip_min_density:
+            # Too few tokens skipped for the gather/scatter to pay for itself.
+            return None
+
+        gate = gate_value if self.config.actually_gate else None
+
+        if not self.is_attn_layer:
+            return compact_token_module(
+                self.module,
+                hidden_states,
+                keep_mask,
+                gate_value=gate,
+                block_size=self.config.vllm_kernel_block_size,
+            )
+
+        # Attention needs the query positions and cannot reuse a KV cache in
+        # this path: keys and values are recomputed for the whole sequence.
+        position_embeddings = kwargs.get("position_embeddings")
+        if position_embeddings is None or not attention_is_compactable(self.module):
+            return None
+        if kwargs.get("past_key_value") is not None:
+            raise NotImplementedError(
+                "Physical skipping of attention does not yet support a KV cache; "
+                "use it for prefill/evaluation, or disable physically_skip."
+            )
+
+        attn_output, _, _ = compact_llama_attention(
+            self.module,
+            hidden_states,
+            keep_mask,
+            position_embeddings,
+            attention_mask=kwargs.get("attention_mask"),
+            gate_value=gate,
+            block_size=self.config.vllm_kernel_block_size,
+        )
+        return attn_output
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -238,6 +298,12 @@ class GatedWrapper(nn.Module):
         skip_mask = (token_importance <= threshold).unsqueeze(-1)
 
         self.calculate_skipping_statistics(skip_mask)
+
+        physical = self.maybe_physically_skip(
+            hidden_states, skip_mask, gate_value, *args, **kwargs
+        )
+        if physical is not None:
+            return physical
 
         module_output = self.module(hidden_states, *args, **kwargs)
         main_output = (
