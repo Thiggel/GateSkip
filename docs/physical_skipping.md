@@ -67,6 +67,25 @@ This is why the end-to-end saving is smaller than the token skip ratio, and
 why any measurement claiming a 1:1 translation from skip ratio to wall-clock
 should be treated with suspicion.
 
+## Measured throughput
+
+Llama-3.2-1B, one A40, gates trained for 150 frozen-backbone steps. Batch (8)
+and sequence length (512) are held fixed across every row, and both arms use
+SDPA, so the only variable is whether skipped tokens are actually skipped.
+
+| Skip | Masked tok/s | Physical tok/s | Speedup | Masked ms | Physical ms |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0%  | 5612 | 5599 | 1.00x | 729.9 | 731.6 |
+| 15% | 5559 | 5962 | 1.07x | 736.8 | 687.0 |
+| 25% | 5549 | 6471 | 1.17x | 738.2 | 633.0 |
+| 35% | 5544 | 6943 | 1.25x | 738.8 | 589.9 |
+| 50% | 5541 | 7856 | 1.42x | 739.2 | 521.4 |
+| 70% | 5536 | 9569 | 1.73x | 739.9 | 428.0 |
+
+The masked column is the finding: throughput is flat within 1.4% from 0% to
+70% skipping, because that path computes every token regardless. Any reported
+speedup from the masked path comes from something other than skipping.
+
 ## Limitations
 
 - **No KV cache yet.** The attention path recomputes keys and values for the
