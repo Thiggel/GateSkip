@@ -258,7 +258,8 @@ class GatedWrapper(nn.Module):
         position_embeddings = kwargs.get("position_embeddings")
         if position_embeddings is None or not attention_is_compactable(self.module):
             return None
-        if kwargs.get("past_key_value") is not None:
+        # transformers renamed this kwarg in 4.57; accept either spelling.
+        if any(kwargs.get(k) is not None for k in ("past_key_value", "past_key_values")):
             raise NotImplementedError(
                 "Physical skipping of attention does not yet support a KV cache; "
                 "use it for prefill/evaluation, or disable physically_skip."

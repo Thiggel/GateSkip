@@ -1,0 +1,37 @@
+#!/bin/bash -l
+#SBATCH --job-name=gateskip-physical-bench
+#SBATCH --partition=a40
+#SBATCH --gres=gpu:a40:1
+#SBATCH --time=00:40:00
+#SBATCH --nodes=1
+#SBATCH --output=job_logs/physical_skip_bench_%j.txt
+
+# The repo normally runs inside jobs/environment.sh's apptainer image. No image
+# is built on this cluster, so we use the shared venv plus a small overlay that
+# carries only lightning -- the venv is shared with other projects, so
+# installing into it directly would disturb them.
+VENV=/home/vault/c107fa/c107fa12/.venv_rlvl_posttrain
+OVERLAY=$WORK/GateSkip/pyoverlay
+
+cd $HOME/GateSkip
+module load cuda/12.1.1 2>/dev/null || true
+
+export http_proxy=http://proxy:80 https_proxy=http://proxy:80
+export HF_HOME=$WORK/GateSkip/hf
+export HF_HUB_CACHE=$HF_HOME/hub
+export HF_TOKEN=$(cat $HOME/.cache/huggingface/token 2>/dev/null)
+export PYTHONPATH=$OVERLAY:$HOME/GateSkip
+export TOKENIZERS_PARALLELISM=false
+mkdir -p $HF_HUB_CACHE job_logs $WORK/GateSkip/checkpoints
+
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+
+srun $VENV/bin/python scripts/train_and_bench_gateskip.py \
+  --model-name meta-llama/Llama-3.2-1B \
+  --steps 150 \
+  --batch-size 4 \
+  --seq-length 512 \
+  --bench-batch 8 \
+  --bench-steps 8 \
+  --checkpoint $WORK/GateSkip/checkpoints/gateskip_small_adapter.pt \
+  --results $WORK/GateSkip/physical_skip_throughput.json
