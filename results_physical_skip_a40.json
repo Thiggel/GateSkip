@@ -1,0 +1,115 @@
+{
+  "args": {
+    "model_name": "meta-llama/Llama-3.2-1B",
+    "steps": 150,
+    "batch_size": 4,
+    "seq_length": 512,
+    "learning_rate": 0.0001,
+    "sparsity_loss_weight": 1.0,
+    "bench_batch": 8,
+    "bench_steps": 8,
+    "warmups": 3,
+    "seed": 1,
+    "attn_impl": "sdpa",
+    "checkpoint": "/home/atuin/c107fa/c107fa12/GateSkip/checkpoints/gateskip_small_adapter.pt",
+    "results": "/home/atuin/c107fa/c107fa12/GateSkip/physical_skip_throughput.json"
+  },
+  "rows": [
+    {
+      "latency_s_per_pass": 0.729915994372277,
+      "throughput_tokens_per_s": 5611.604666263729,
+      "measured_skip_fraction": 0.0,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.0,
+      "mode": "masked"
+    },
+    {
+      "latency_s_per_pass": 0.7316005476241116,
+      "throughput_tokens_per_s": 5598.683616765798,
+      "measured_skip_fraction": 0.0,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.0,
+      "mode": "physical"
+    },
+    {
+      "latency_s_per_pass": 0.7367708288802532,
+      "throughput_tokens_per_s": 5559.39491554669,
+      "measured_skip_fraction": 0.1501617431640625,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.15,
+      "mode": "masked"
+    },
+    {
+      "latency_s_per_pass": 0.6870054898754461,
+      "throughput_tokens_per_s": 5962.106650330558,
+      "measured_skip_fraction": 0.1501922607421875,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.15,
+      "mode": "physical"
+    },
+    {
+      "latency_s_per_pass": 0.7382108912497642,
+      "throughput_tokens_per_s": 5548.549944942726,
+      "measured_skip_fraction": 0.2501220703125,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.25,
+      "mode": "masked"
+    },
+    {
+      "latency_s_per_pass": 0.633014566374186,
+      "throughput_tokens_per_s": 6470.625191867674,
+      "measured_skip_fraction": 0.2501068115234375,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.25,
+      "mode": "physical"
+    },
+    {
+      "latency_s_per_pass": 0.7387998801204958,
+      "throughput_tokens_per_s": 5544.126508699427,
+      "measured_skip_fraction": 0.35015869140625,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.35,
+      "mode": "masked"
+    },
+    {
+      "latency_s_per_pass": 0.5899367178717512,
+      "throughput_tokens_per_s": 6943.117585182156,
+      "measured_skip_fraction": 0.35015106201171875,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.35,
+      "mode": "physical"
+    },
+    {
+      "latency_s_per_pass": 0.7391848156257765,
+      "throughput_tokens_per_s": 5541.239367224315,
+      "measured_skip_fraction": 0.5001373291015625,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.5,
+      "mode": "masked"
+    },
+    {
+      "latency_s_per_pass": 0.5213803918741178,
+      "throughput_tokens_per_s": 7856.068359757072,
+      "measured_skip_fraction": 0.5001602172851562,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.5,
+      "mode": "physical"
+    },
+    {
+      "latency_s_per_pass": 0.7399016951239901,
+      "throughput_tokens_per_s": 5535.870544685814,
+      "measured_skip_fraction": 0.7001113891601562,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.7,
+      "mode": "masked"
+    },
+    {
+      "latency_s_per_pass": 0.4280423608797719,
+      "throughput_tokens_per_s": 9569.146361078221,
+      "measured_skip_fraction": 0.7000656127929688,
+      "peak_memory_gb": 8.11063814163208,
+      "requested_skip": 0.7,
+      "mode": "physical"
+    }
+  ]
+}

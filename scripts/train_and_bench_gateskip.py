@@ -106,7 +106,7 @@ def train_gates(model, tokenizer, args, device):
         input_ids = batch.to(device)
         set_gate_context(model, input_ids, tokenizer, step)
 
-        out = model(input_ids=input_ids, labels=input_ids)
+        out = model(input_ids=input_ids, labels=input_ids, use_cache=False)
         entropy_loss, sparsity_loss = model.gating.compute_gate_loss()
         loss = out.loss + args.sparsity_loss_weight * sparsity_loss
 
@@ -144,7 +144,9 @@ def measure(model, tokenizer, config, args, device, skip_ratio, physical):
 
     def one_pass():
         set_gate_context(model, input_ids, tokenizer, args.steps)
-        model(input_ids=input_ids)
+        # transformers builds a Cache on every forward unless told not to, and
+        # the compacted attention path recomputes K/V for the whole sequence.
+        model(input_ids=input_ids, use_cache=False)
 
     for _ in range(args.warmups):
         one_pass()
@@ -197,6 +199,7 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model, config = build_model(args, tokenizer, device)
+    model.config.use_cache = False
     model.to(device)
 
     gate_state = train_gates(model, tokenizer, args, device)

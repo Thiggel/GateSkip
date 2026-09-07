@@ -274,7 +274,8 @@ class GatedWrapper(nn.Module):
             gate_value=gate,
             block_size=self.config.vllm_kernel_block_size,
         )
-        return attn_output
+        # Callers unpack attention as ``hidden_states, attn_weights``.
+        return attn_output, None
 
     def forward(
         self,

@@ -290,6 +290,10 @@ def compact_llama_attention(
     query_states = attn.q_proj(q_in).view(batch, n_max, -1, head_dim).transpose(1, 2)
 
     # RoPE must use each token's original position, so gather cos/sin too.
+    # These often arrive with a broadcast batch dim of 1; expand before gather.
+    if cos.shape[0] != batch:
+        cos = cos.expand(batch, -1, -1)
+        sin = sin.expand(batch, -1, -1)
     q_cos = cos.gather(1, index.unsqueeze(-1).expand(-1, -1, cos.shape[-1]))
     q_sin = sin.gather(1, index.unsqueeze(-1).expand(-1, -1, sin.shape[-1]))
     k_cos, k_sin = cos.unsqueeze(1), sin.unsqueeze(1)

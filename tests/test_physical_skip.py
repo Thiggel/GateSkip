@@ -256,3 +256,26 @@ def test_skipped_token_still_influences_kept_tokens():
     assert not torch.allclose(base[:, 4:], moved[:, 4:], **TOL)
     # The skipped token itself contributes nothing to the residual.
     assert torch.all(base[:, 3] == 0)
+
+
+def test_broadcast_rotary_batch_dim_is_handled():
+    """cos/sin often arrive as [1, T, D]; the query gather must still work."""
+    torch.manual_seed(0)
+    config = _config()
+    attn = LlamaAttention(config, layer_idx=0).eval()
+    rotary = LlamaRotaryEmbedding(config)
+
+    hidden = torch.randn(BATCH, SEQ, HIDDEN)
+    keep = _keep_mask(0.3, seed=4)
+    mask = _causal_mask()
+
+    # Batch-matched positions vs a single broadcast row.
+    full = rotary(hidden, torch.arange(SEQ).unsqueeze(0).expand(BATCH, -1))
+    single = rotary(hidden, torch.arange(SEQ).unsqueeze(0))
+    assert single[0].shape[0] == 1
+
+    with torch.no_grad():
+        a, _, _ = compact_llama_attention(attn, hidden, keep, full, attention_mask=mask)
+        b, _, _ = compact_llama_attention(attn, hidden, keep, single, attention_mask=mask)
+
+    assert torch.allclose(a, b, **TOL)
